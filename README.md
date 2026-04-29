@@ -1,3 +1,7 @@
+<p align="center">
+  <img src=".assets/icon-sm.png" alt="worktree" width="160">
+</p>
+
 # worktree 🦄
 
 A dreamy little TUI for managing git worktrees. Browse, create, and remove
