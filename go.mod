@@ -1,4 +1,4 @@
-module github.com/rewdy/worktree-tool
+module github.com/rewdy/worktree-cli
 
 go 1.24.13
 

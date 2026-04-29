@@ -8,7 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/rewdy/worktree-tool/internal/git"
+	"github.com/rewdy/worktree-cli/internal/git"
 )
 
 // AddResult is what the add form returns after the user submits or cancels.

@@ -6,7 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/rewdy/worktree-tool/internal/git"
+	"github.com/rewdy/worktree-cli/internal/git"
 )
 
 func sampleWorktrees() []git.Worktree {

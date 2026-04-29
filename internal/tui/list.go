@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/sahilm/fuzzy"
 
-	"github.com/rewdy/worktree-tool/internal/git"
+	"github.com/rewdy/worktree-cli/internal/git"
 )
 
 // ListMode controls which special rows are shown and what selection means.

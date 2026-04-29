@@ -9,20 +9,24 @@ worktrees with arrow keys, fuzzy filter, and a sprinkle of rainbow garnish.
 
 ## Install
 
+Requires Go 1.22+.
+
 ```sh
-go install github.com/rewdy/worktree-tool@latest
+go install github.com/rewdy/worktree-cli/cmd/worktree-bin@latest
 ```
 
-The binary is called `worktree-tool` by default from `go install`. To use the
-ergonomic name `worktree` (and get `cd`-into-worktree behavior), install the
-shell wrapper (see below).
+This drops a binary called `worktree-bin` into `$(go env GOBIN)` (usually
+`~/go/bin`). Make sure that directory is in your `$PATH`.
+
+To use the ergonomic name `worktree` (and get `cd`-into-worktree behavior),
+install the shell wrapper — see below.
 
 Alternatively, build from source:
 
 ```sh
-git clone https://github.com/rewdy/worktree-tool
-cd worktree-tool
-go build -o worktree-bin .
+git clone https://github.com/rewdy/worktree-cli
+cd worktree-cli
+go build -o worktree-bin ./cmd/worktree-bin
 mv worktree-bin ~/.local/bin/   # or anywhere on your $PATH
 ```
 
@@ -81,7 +85,8 @@ Three fields, `tab` to navigate:
 
 1. **Path** — pre-populated with `../` since new worktrees usually go next to
    the current one
-2. **Branch** — new branch name. Leave blank to let git use its default.
+2. **Branch** — new branch name. Leave blank to use the folder name from the
+   path (e.g. `../my-feature` → branch `my-feature`).
 3. **Base** — segmented picker:
    - **main** (or **master** — whichever your repo has)
    - **&lt;current-branch&gt;** — only shown if it's not the same as main
@@ -111,5 +116,5 @@ changes, git's error is surfaced verbatim so you can decide what to do.
 
 ```sh
 go test ./...
-go build -o worktree-bin .
+go build -o worktree-bin ./cmd/worktree-bin
 ```

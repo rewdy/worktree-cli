@@ -6,9 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rewdy/worktree-tool/internal/git"
-	"github.com/rewdy/worktree-tool/internal/shell"
-	"github.com/rewdy/worktree-tool/internal/tui"
+	"github.com/rewdy/worktree-cli/internal/git"
+	"github.com/rewdy/worktree-cli/internal/shell"
+	"github.com/rewdy/worktree-cli/internal/tui"
 )
 
 func main() {
