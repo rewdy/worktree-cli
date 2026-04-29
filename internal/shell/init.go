@@ -37,7 +37,7 @@ func posixScript() string {
 	// binary prints on stdout. Sets WORKTREE_WRAPPED=1 so the binary knows
 	// it's being called through the wrapper (suppresses the first-run tip).
 	return strings.TrimSpace(`
-# worktree-tool shell integration
+# worktree-cli shell integration
 worktree() {
   local target
   target=$(WORKTREE_WRAPPED=1 command worktree-bin "$@")
@@ -53,13 +53,16 @@ worktree() {
 }
 
 func fishScript() string {
+	// Note: `status` is a fish builtin/read-only — we capture it as
+	// `wt_status` immediately after the command substitution so it doesn't
+	// get clobbered by intervening commands.
 	return strings.TrimSpace(`
-# worktree-tool shell integration
+# worktree-cli shell integration
 function worktree
   set -l target (WORKTREE_WRAPPED=1 command worktree-bin $argv)
-  set -l status_code $status
-  if test $status_code -ne 0
-    return $status_code
+  set -l wt_status $status
+  if test $wt_status -ne 0
+    return $wt_status
   end
   if test -n "$target" -a -d "$target"
     cd $target

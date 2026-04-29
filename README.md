@@ -12,51 +12,38 @@ worktrees with arrow keys, fuzzy filter, and a sprinkle of rainbow garnish.
 Requires Go 1.22+.
 
 ```sh
+# 1. Install the binary (goes into $(go env GOBIN), usually ~/go/bin — make sure it's on $PATH)
 go install github.com/rewdy/worktree-cli/cmd/worktree-bin@latest
+
+# 2. Install the shell wrapper so `worktree` cd's into the selected path.
+#    Pick the line for your shell:
+echo 'eval "$(worktree-bin shell-init)"' >> ~/.zshrc       # zsh
+echo 'eval "$(worktree-bin shell-init)"' >> ~/.bashrc      # bash
+echo 'worktree-bin shell-init fish | source' >> ~/.config/fish/config.fish   # fish
+
+# 3. Reload your shell (or open a new terminal).
 ```
 
-This drops a binary called `worktree-bin` into `$(go env GOBIN)` (usually
-`~/go/bin`). Make sure that directory is in your `$PATH`.
+After that, run `worktree` from inside any git repo.
 
-To use the ergonomic name `worktree` (and get `cd`-into-worktree behavior),
-install the shell wrapper — see below.
+### Why the shell wrapper?
 
-Alternatively, build from source:
+A child process can't change its parent shell's directory. The wrapper is a
+small shell function: the binary prints the chosen worktree path on stdout,
+and the function `cd`s there. Without it, `worktree` still works — it just
+prints `cd <path>` for you to copy. Dismiss the install hint with:
+
+```sh
+worktree-bin shell-init --dismiss-tip
+```
+
+### Build from source
 
 ```sh
 git clone https://github.com/rewdy/worktree-cli
 cd worktree-cli
 go build -o worktree-bin ./cmd/worktree-bin
 mv worktree-bin ~/.local/bin/   # or anywhere on your $PATH
-```
-
-## Shell wrapper (for `cd`-into-worktree)
-
-A child process can't change its parent shell's directory. The wrapper solves
-this: the binary prints the chosen worktree path on stdout, and the wrapper
-`cd`s there.
-
-Add this to your `~/.zshrc` or `~/.bashrc`:
-
-```sh
-eval "$(worktree-bin shell-init)"
-```
-
-For fish (`~/.config/fish/config.fish`):
-
-```fish
-worktree-bin shell-init fish | source
-```
-
-After that, `worktree` is a shell function that invokes the binary and `cd`s
-into whatever you select.
-
-If you haven't installed the wrapper, `worktree` still works — it just prints
-a helpful `cd <path>` hint instead of changing your directory. Dismiss that
-tip with:
-
-```sh
-worktree-bin shell-init --dismiss-tip
 ```
 
 ## Usage
