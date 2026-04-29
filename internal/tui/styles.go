@@ -19,14 +19,11 @@ var (
 	colorDim           = lipgloss.AdaptiveColor{Light: "#9CA3AF", Dark: "#6B7280"}
 	colorFg            = lipgloss.AdaptiveColor{Light: "#111827", Dark: "#F9FAFB"}
 	colorDanger        = lipgloss.AdaptiveColor{Light: "#DC2626", Dark: "#FCA5A5"}
-	colorHighlight     = lipgloss.AdaptiveColor{Light: "#DDD6FE", Dark: "#5B21B6"} // violet selection bg
-	colorHighlightPink = lipgloss.AdaptiveColor{Light: "#FBCFE8", Dark: "#9D174D"} // pink selection bg
+	colorHighlight = lipgloss.AdaptiveColor{Light: "#DDD6FE", Dark: "#5B21B6"} // violet selection bg
 )
 
 // Style bundles used across screens.
 var (
-	StyleBase = lipgloss.NewStyle()
-
 	// StyleFrame is the outer purple border that wraps every screen.
 	StyleFrame = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -45,19 +42,8 @@ var (
 			Foreground(colorMuted).
 			Italic(true)
 
-	// StyleHeader renders the title block (no bottom border — the rainbow
-	// underline handles that visually).
-	StyleHeader = lipgloss.NewStyle().
-			MarginBottom(1)
-
 	StyleRow = lipgloss.NewStyle().
 			Padding(0, 1)
-
-	StyleRowSelected = lipgloss.NewStyle().
-				Padding(0, 1)
-
-	StyleRowSelectedPink = lipgloss.NewStyle().
-				Padding(0, 1)
 
 	StyleSelectedPath = lipgloss.NewStyle().
 				Foreground(colorAccent).
@@ -133,17 +119,8 @@ var (
 				Background(colorHighlight).
 				Bold(true)
 
-	StyleCard = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(colorPrimary).
-			Padding(1, 2)
-
 	StyleFilter = lipgloss.NewStyle().
 			Foreground(colorAccent).
-			Bold(true)
-
-	StyleMatch = lipgloss.NewStyle().
-			Foreground(colorGold).
 			Bold(true)
 
 	StyleAddNew = lipgloss.NewStyle().

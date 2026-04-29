@@ -24,9 +24,8 @@ type focusField int
 const (
 	focusPath focusField = iota
 	focusBranch
-	focusBase   // the segmented selector
-	focusOther  // the "other base" text input (only when the Other pill is active)
-	focusCount_ // sentinel; keep last
+	focusBase  // the segmented selector
+	focusOther // the "other base" text input (only when the Other pill is active)
 )
 
 // baseChoice represents one of the base-branch pills.

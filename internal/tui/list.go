@@ -7,7 +7,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/sahilm/fuzzy"
 
 	"github.com/rewdy/worktree-cli/internal/git"
@@ -58,9 +57,6 @@ type ListModel struct {
 	filtered     []int // indexes into items; nil means no filter active
 	result       ListResult
 	done         bool
-	width        int
-	height       int
-	errMsg       string
 	emptyMessage string
 }
 
@@ -115,10 +111,6 @@ func (m ListModel) Init() tea.Cmd {
 // Update implements tea.Model.
 func (m ListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.width, m.height = msg.Width, msg.Height
-		return m, nil
-
 	case tea.KeyMsg:
 		// When filtering, most keys go into the filter input; only Enter/Esc/arrows escape.
 		if m.filtering {
@@ -325,14 +317,6 @@ func (m ListModel) cursorGlyph(selected bool) string {
 		return StyleRowCursorRemove.Render("✗ ")
 	}
 	return StyleRowCursor.Render("▸ ")
-}
-
-// rowHighlightStyle returns the full-row highlight style for the current mode.
-func (m ListModel) rowHighlightStyle() lipgloss.Style {
-	if m.mode == ModeRemove {
-		return StyleRowSelectedPink
-	}
-	return StyleRowSelected
 }
 
 // underlineHex returns the hex color used for the selected-row underline.

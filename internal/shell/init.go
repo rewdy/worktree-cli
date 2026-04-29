@@ -36,14 +36,16 @@ func posixScript() string {
 	// The shell function wraps the binary and cds into whatever path the
 	// binary prints on stdout. Sets WORKTREE_WRAPPED=1 so the binary knows
 	// it's being called through the wrapper (suppresses the first-run tip).
+	// We use `wt_status` rather than `status` because zsh treats `$status`
+	// as a read-only alias for `$?` and refuses `local status=...`.
 	return strings.TrimSpace(`
 # worktree-cli shell integration
 worktree() {
   local target
   target=$(WORKTREE_WRAPPED=1 command worktree-bin "$@")
-  local status=$?
-  if [ $status -ne 0 ]; then
-    return $status
+  local wt_status=$?
+  if [ $wt_status -ne 0 ]; then
+    return $wt_status
   fi
   if [ -n "$target" ] && [ -d "$target" ]; then
     cd "$target" || return $?
@@ -75,13 +77,13 @@ end
 // install tip. Follows XDG conventions with a fallback to ~/.config.
 func TipDismissedPath() string {
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-		return filepath.Join(xdg, "worktree-tool", "tip-dismissed")
+		return filepath.Join(xdg, "worktree-cli", "tip-dismissed")
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".config", "worktree-tool", "tip-dismissed")
+	return filepath.Join(home, ".config", "worktree-cli", "tip-dismissed")
 }
 
 // IsWrapped returns true when the binary is being invoked through the shell
