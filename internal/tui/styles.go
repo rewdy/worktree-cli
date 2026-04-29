@@ -156,14 +156,16 @@ var (
 // underline sequence so the underline persists across nested segments —
 // something lipgloss can't do for us without clobbering the inner colors.
 //
-// The hex is converted to a 24-bit SGR color (58;2;r;g;b is the underline-
-// color SGR; 4 turns underline on). Terminals that don't support 58 will
-// still show a plain underline.
+// We emit underline toggle (4) and underline color (58:2::R:G:B) as *two
+// separate* SGR escapes. Combining them in one escape (e.g.
+// `\x1b[4;58:2::R:G:Bm`) mixes semicolon and colon separators in a way that
+// several terminals (notably some iTerm2 builds) tokenize incorrectly,
+// causing leftover numeric tokens to be re-interpreted as foreground color
+// codes and blowing out nested segment colors.
 func UnderlineWithColor(s, hex string) string {
 	r, g, b := parseHex(hex)
-	// 4 = underline on; 58;2;r;g;b = underline color (24-bit)
-	open := fmt.Sprintf("\x1b[4;58:2::%d:%d:%dm", r, g, b)
-	close := "\x1b[24m" // underline off
+	open := fmt.Sprintf("\x1b[4m\x1b[58:2::%d:%d:%dm", r, g, b)
+	close := "\x1b[59m\x1b[24m" // reset underline color, then turn underline off
 	// After every reset inside the string, re-open the underline so the
 	// following text keeps the underline even if the inner style reset it.
 	replaced := strings.ReplaceAll(s, "\x1b[0m", "\x1b[0m"+open)
