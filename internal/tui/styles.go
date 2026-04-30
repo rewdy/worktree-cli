@@ -9,16 +9,16 @@ import (
 
 // Theme — a soft, dreamy palette with rainbow accents for unicorn vibes.
 var (
-	colorPrimary       = lipgloss.AdaptiveColor{Light: "#8B5CF6", Dark: "#C4B5FD"} // violet
-	colorAccent        = lipgloss.AdaptiveColor{Light: "#EC4899", Dark: "#F9A8D4"} // pink
-	colorTeal          = lipgloss.AdaptiveColor{Light: "#0D9488", Dark: "#5EEAD4"} // teal
-	colorMint          = lipgloss.AdaptiveColor{Light: "#10B981", Dark: "#6EE7B7"} // mint
-	colorSky           = lipgloss.AdaptiveColor{Light: "#0EA5E9", Dark: "#7DD3FC"} // sky
-	colorGold          = lipgloss.AdaptiveColor{Light: "#D97706", Dark: "#FCD34D"} // gold
-	colorMuted         = lipgloss.AdaptiveColor{Light: "#6B7280", Dark: "#9CA3AF"}
-	colorDim           = lipgloss.AdaptiveColor{Light: "#9CA3AF", Dark: "#6B7280"}
-	colorFg            = lipgloss.AdaptiveColor{Light: "#111827", Dark: "#F9FAFB"}
-	colorDanger        = lipgloss.AdaptiveColor{Light: "#DC2626", Dark: "#FCA5A5"}
+	colorPrimary   = lipgloss.AdaptiveColor{Light: "#8B5CF6", Dark: "#C4B5FD"} // violet
+	colorAccent    = lipgloss.AdaptiveColor{Light: "#EC4899", Dark: "#F9A8D4"} // pink
+	colorTeal      = lipgloss.AdaptiveColor{Light: "#0D9488", Dark: "#5EEAD4"} // teal
+	colorMint      = lipgloss.AdaptiveColor{Light: "#10B981", Dark: "#6EE7B7"} // mint
+	colorSky       = lipgloss.AdaptiveColor{Light: "#0EA5E9", Dark: "#7DD3FC"} // sky
+	colorGold      = lipgloss.AdaptiveColor{Light: "#D97706", Dark: "#FCD34D"} // gold
+	colorMuted     = lipgloss.AdaptiveColor{Light: "#6B7280", Dark: "#9CA3AF"}
+	colorDim       = lipgloss.AdaptiveColor{Light: "#9CA3AF", Dark: "#6B7280"}
+	colorFg        = lipgloss.AdaptiveColor{Light: "#111827", Dark: "#F9FAFB"}
+	colorDanger    = lipgloss.AdaptiveColor{Light: "#DC2626", Dark: "#FCA5A5"}
 	colorHighlight = lipgloss.AdaptiveColor{Light: "#DDD6FE", Dark: "#5B21B6"} // violet selection bg
 )
 

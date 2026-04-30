@@ -34,15 +34,23 @@ func detect() string {
 
 func posixScript() string {
 	// The shell function wraps the binary and cds into whatever path the
-	// binary prints on stdout. Sets WORKTREE_WRAPPED=1 so the binary knows
-	// it's being called through the wrapper (suppresses the first-run tip).
-	// We use `wt_status` rather than `status` because zsh treats `$status`
-	// as a read-only alias for `$?` and refuses `local status=...`.
+	// binary emits on fd 3.
+	//
+	// A straight $(...) command substitution would redirect stdout to a
+	// pipe, which confuses terminal rendering — some terminals degrade
+	// color fidelity when the foreground process doesn't own the TTY's
+	// stdout. Instead we redirect so fd 3 captures the path, stdout goes
+	// to stderr (and thus the TTY), and the TUI sees both stdout and
+	// stderr connected to the real terminal and renders with full color.
+	//
+	// WORKTREE_WRAPPED=1 tells the binary it's being called through the
+	// wrapper (suppresses the first-run tip). `wt_status` avoids zsh's
+	// read-only `status` builtin.
 	return strings.TrimSpace(`
 # worktree-cli shell integration
 worktree() {
   local target
-  target=$(WORKTREE_WRAPPED=1 command worktree-bin "$@")
+  target=$(WORKTREE_WRAPPED=1 WORKTREE_PATH_FD=3 command worktree-bin "$@" 3>&1 1>&2)
   local wt_status=$?
   if [ $wt_status -ne 0 ]; then
     return $wt_status
@@ -55,13 +63,13 @@ worktree() {
 }
 
 func fishScript() string {
-	// Note: `status` is a fish builtin/read-only — we capture it as
-	// `wt_status` immediately after the command substitution so it doesn't
-	// get clobbered by intervening commands.
+	// Uses fd 3 to pass the selected path — same rationale as the posix
+	// script: keeps stdout/stderr connected to the real TTY so the TUI can
+	// render with full color.
 	return strings.TrimSpace(`
 # worktree-cli shell integration
 function worktree
-  set -l target (WORKTREE_WRAPPED=1 command worktree-bin $argv)
+  set -l target (WORKTREE_WRAPPED=1 WORKTREE_PATH_FD=3 command worktree-bin $argv 3>&1 1>&2)
   set -l wt_status $status
   if test $wt_status -ne 0
     return $wt_status

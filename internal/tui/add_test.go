@@ -51,8 +51,8 @@ func TestAddSubmitWithDefaultBase(t *testing.T) {
 func TestAddOtherBaseRequiresValue(t *testing.T) {
 	m := tea.Model(NewAddModel("main", ""))
 	m = typeString(m, "work")
-	m = sendKey(m, "tab") // → branch
-	m = sendKey(m, "tab") // → base
+	m = sendKey(m, "tab")   // → branch
+	m = sendKey(m, "tab")   // → base
 	m = sendKey(m, "right") // default → other (no current branch shown)
 	m = sendKey(m, "enter") // enter on base+other moves focus into other input
 	m = sendKey(m, "enter") // enter again with empty other → validation error
@@ -91,8 +91,8 @@ func TestAddCancel(t *testing.T) {
 func TestAddEmptyPathValidation(t *testing.T) {
 	m := tea.Model(NewAddModel("main", ""))
 	// Path is "../" by default — submit without typing should fail validation.
-	m = sendKey(m, "tab") // path → branch
-	m = sendKey(m, "tab") // branch → base
+	m = sendKey(m, "tab")   // path → branch
+	m = sendKey(m, "tab")   // branch → base
 	m = sendKey(m, "enter") // submit
 	am := m.(AddModel)
 	if am.Result().Submitted {

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -282,10 +283,16 @@ func runRemove(args []string) error {
 
 // --- shared path emission ----------------------------------------------
 
-// emitPath writes the chosen worktree path to stdout (for the shell wrapper
-// to consume) and, if not wrapped, shows a helpful hint on stderr.
+// emitPath writes the chosen worktree path to wherever the shell wrapper
+// wants it (file descriptor specified by $WORKTREE_PATH_FD, or stdout if
+// unset), and shows a helpful hint on stderr if the binary is running
+// outside the shell wrapper.
+//
+// Using a dedicated file descriptor (instead of stdout) lets the wrapper
+// keep stdout connected to the real terminal, which is what bubbletea /
+// lipgloss need to render full color without degradation.
 func emitPath(path string) {
-	fmt.Println(path)
+	writePathChannel(path + "\n")
 	if !shell.IsWrapped() && !shell.TipDismissed() {
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, tui.StyleSubtitle.Render("  See the worktree:"))
@@ -297,4 +304,20 @@ func emitPath(path string) {
 		fmt.Fprintln(os.Stderr, tui.StyleSubtitle.Render(
 			"  (dismiss this tip with: worktree shell-init --dismiss-tip)"))
 	}
+}
+
+// writePathChannel writes to the caller-designated fd (via $WORKTREE_PATH_FD)
+// or stdout as a fallback. Silently falls back to stdout if the fd isn't open.
+func writePathChannel(s string) {
+	if fdStr := os.Getenv("WORKTREE_PATH_FD"); fdStr != "" {
+		if fd, err := strconv.Atoi(fdStr); err == nil && fd > 0 {
+			f := os.NewFile(uintptr(fd), "path-fd")
+			if f != nil {
+				if _, err := f.WriteString(s); err == nil {
+					return
+				}
+			}
+		}
+	}
+	fmt.Print(s)
 }
