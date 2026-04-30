@@ -113,6 +113,51 @@ func TestListSelectAddNew(t *testing.T) {
 	}
 }
 
+func TestListXRequestsRemove(t *testing.T) {
+	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeSelect))
+	// Move down once → /work/experiment (first non-current after sort)
+	m = sendKey(m, "down")
+	// Press x → should request remove
+	m = sendKey(m, "x")
+	lm := m.(ListModel)
+	if !lm.Result().Remove {
+		t.Fatalf("x should request remove, got %+v", lm.Result())
+	}
+	if lm.Result().Selected != "/work/experiment" {
+		t.Errorf("wrong selection: %q", lm.Result().Selected)
+	}
+}
+
+func TestListXOnCurrentIsNoop(t *testing.T) {
+	// Cursor starts on current worktree (sorted first).
+	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeSelect))
+	m = sendKey(m, "x")
+	lm := m.(ListModel)
+	if lm.Result().Remove {
+		t.Errorf("x on current worktree should be ignored")
+	}
+}
+
+func TestListXOnAddNewIsNoop(t *testing.T) {
+	// Only one worktree → Add-new is the second/last row.
+	m := tea.Model(NewListModel([]git.Worktree{{Path: "/repo", Branch: "main"}}, "/repo", ModeSelect))
+	m = sendKey(m, "down") // → Add new
+	m = sendKey(m, "x")
+	lm := m.(ListModel)
+	if lm.Result().Remove {
+		t.Errorf("x on Add-new row should be ignored")
+	}
+}
+
+func TestListXInRemoveModeIsNoop(t *testing.T) {
+	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeRemove))
+	m = sendKey(m, "x")
+	lm := m.(ListModel)
+	if lm.Result().Remove {
+		t.Errorf("x in ModeRemove should not trigger remove-request flow")
+	}
+}
+
 func TestListCancel(t *testing.T) {
 	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeSelect))
 	m = sendKey(m, "esc")

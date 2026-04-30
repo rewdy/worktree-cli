@@ -124,6 +124,15 @@ func runBare() error {
 			emitPath(path)
 			return nil
 		}
+		if result.Remove {
+			// User pressed `x` on a row — confirm, remove, then return to
+			// the list (without emitting a path, since we're not cd-ing).
+			if err := confirmAndRemove(result.SelectedWorktree); err != nil {
+				return err
+			}
+			worktrees, _ = git.List()
+			continue
+		}
 		if result.Selected != "" {
 			emitPath(result.Selected)
 			return nil
@@ -264,9 +273,24 @@ func runRemove(args []string) error {
 	if result.Cancelled || result.Selected == "" {
 		return nil
 	}
+	return confirmAndRemove(result.SelectedWorktree)
+}
+
+// confirmAndRemove shows the confirm dialog for the given worktree and,
+// if the user confirms, runs `git worktree remove`. Surfaces git's error
+// verbatim on failure (e.g. uncommitted changes). A no-op if the user
+// cancels.
+func confirmAndRemove(wt git.Worktree) error {
+	confirmResult, err := tui.RunConfirm(tui.NewConfirmModel(wt))
+	if err != nil {
+		return err
+	}
+	if !confirmResult.Confirmed {
+		return nil
+	}
 	var out string
-	spinErr := tui.RunWithSpinner("removing "+result.Selected+"…", func() {
-		out, err = git.Remove(result.Selected)
+	spinErr := tui.RunWithSpinner("removing "+wt.Path+"…", func() {
+		out, err = git.Remove(wt.Path)
 	})
 	if spinErr != nil {
 		return spinErr
@@ -277,7 +301,7 @@ func runRemove(args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(os.Stderr, tui.StyleSuccess.Render("✦ removed "+result.Selected))
+	fmt.Fprintln(os.Stderr, tui.StyleSuccess.Render("✦ removed "+wt.Path))
 	return nil
 }
 

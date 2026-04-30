@@ -28,8 +28,14 @@ type ListResult struct {
 	// Selected is the absolute path of the chosen worktree. Empty if the user
 	// cancelled or selected "add new".
 	Selected string
+	// SelectedWorktree is the full record for Selected — used by callers that
+	// need more than just the path (e.g. the confirm dialog).
+	SelectedWorktree git.Worktree
 	// AddNew is true when the user picked the "＋ Add new worktree" row.
 	AddNew bool
+	// Remove is true when the user pressed the remove shortcut on a row.
+	// Selected / SelectedWorktree point at the row they asked to remove.
+	Remove bool
 	// Cancelled is true when the user quit without selecting.
 	Cancelled bool
 }
@@ -151,6 +157,9 @@ func (m ListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			nm, cmd := m.selectCurrent()
 			return nm, cmd
+		case "x", "X":
+			nm, cmd := m.requestRemove()
+			return nm, cmd
 		case "/":
 			m.filtering = true
 			m.filter.Focus()
@@ -236,7 +245,30 @@ func (m ListModel) selectCurrent() (ListModel, tea.Cmd) {
 		m.result.AddNew = true
 	} else {
 		m.result.Selected = item.wt.Path
+		m.result.SelectedWorktree = item.wt
 	}
+	m.done = true
+	return m, tea.Quit
+}
+
+// requestRemove marks the cursor row for removal (ModeSelect only) and
+// exits. Silently ignores the request on the "Add new" row or the current
+// worktree (which the caller may not want to delete).
+func (m ListModel) requestRemove() (ListModel, tea.Cmd) {
+	if m.mode != ModeSelect {
+		return m, nil
+	}
+	visible := m.visibleIndexes()
+	if m.cursor < 0 || m.cursor >= len(visible) {
+		return m, nil
+	}
+	item := m.items[visible[m.cursor]]
+	if item.addNew || item.current {
+		return m, nil
+	}
+	m.result.Selected = item.wt.Path
+	m.result.SelectedWorktree = item.wt
+	m.result.Remove = true
 	m.done = true
 	return m, tea.Quit
 }
@@ -375,7 +407,11 @@ func (m ListModel) helpLine() string {
 	if m.filtering {
 		parts = append(parts, "enter: select", "esc: clear filter", "↑↓: move", "ctrl+c: quit")
 	} else {
-		parts = append(parts, "↑↓: move", "enter: select", "/ or type: filter", "q: quit")
+		parts = append(parts, "↑↓: move", "enter: select", "/ or type: filter")
+		if m.mode == ModeSelect {
+			parts = append(parts, "x: remove")
+		}
+		parts = append(parts, "q: quit")
 	}
 	return StyleHelp.Render(strings.Join(parts, "  •  "))
 }
