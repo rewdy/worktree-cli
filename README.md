@@ -7,6 +7,12 @@
 A dreamy little TUI for managing git worktrees. Browse, create, and remove
 worktrees with arrow keys, fuzzy filter, and a sprinkle of rainbow garnish.
 
+## Demo
+
+[![asciicast](https://asciinema.org/a/LpY6YrBFm0ba4pei.svg)](https://asciinema.org/a/LpY6YrBFm0ba4pei)
+
+📹 [View on asciinema](https://asciinema.org/a/LpY6YrBFm0ba4pei)
+
 ## Install
 
 Requires Go 1.22+.
