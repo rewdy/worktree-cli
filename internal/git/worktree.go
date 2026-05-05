@@ -222,6 +222,12 @@ func Remove(path string) (string, error) {
 	return stderr, err
 }
 
+// Unlock runs `git worktree unlock <path>`. Returns stderr.
+func Unlock(path string) (string, error) {
+	stderr, err := runCombined("git", "worktree", "unlock", path)
+	return stderr, err
+}
+
 // --- internal helpers ---------------------------------------------------
 
 func run(name string, args ...string) (string, error) {

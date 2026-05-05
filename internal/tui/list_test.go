@@ -158,6 +158,58 @@ func TestListXInRemoveModeIsNoop(t *testing.T) {
 	}
 }
 
+func TestListUOnLockedRequestsUnlock(t *testing.T) {
+	wts := []git.Worktree{
+		{Path: "/repo", Branch: "main"},
+		{Path: "/work/pinned", Branch: "pinned", Locked: true},
+	}
+	m := tea.Model(NewListModel(wts, "/repo", ModeSelect))
+	m = sendKey(m, "down") // → /work/pinned
+	m = sendKey(m, "u")
+	lm := m.(ListModel)
+	if !lm.Result().Unlock {
+		t.Fatalf("u on locked row should request unlock, got %+v", lm.Result())
+	}
+	if lm.Result().Selected != "/work/pinned" {
+		t.Errorf("wrong selection: %q", lm.Result().Selected)
+	}
+	if !lm.Result().SelectedWorktree.Locked {
+		t.Errorf("selected worktree should be locked")
+	}
+}
+
+func TestListUOnUnlockedIsNoop(t *testing.T) {
+	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeSelect))
+	// Cursor on current worktree (not locked).
+	m = sendKey(m, "u")
+	lm := m.(ListModel)
+	if lm.Result().Unlock {
+		t.Errorf("u on unlocked row should be ignored")
+	}
+	if lm.done {
+		t.Errorf("model should not be done after no-op u")
+	}
+}
+
+func TestListUnlockHintShownOnlyOnLocked(t *testing.T) {
+	wts := []git.Worktree{
+		{Path: "/repo", Branch: "main"},
+		{Path: "/work/pinned", Branch: "pinned", Locked: true},
+	}
+	m := NewListModel(wts, "/repo", ModeSelect)
+	// Cursor on /repo (unlocked) → hint absent.
+	if strings.Contains(m.helpLine(), "unlock") {
+		t.Errorf("help line should not show unlock hint on unlocked row")
+	}
+	// Move to /work/pinned → hint present.
+	m2 := tea.Model(m)
+	m2 = sendKey(m2, "down")
+	lm := m2.(ListModel)
+	if !strings.Contains(lm.helpLine(), "unlock") {
+		t.Errorf("help line should show unlock hint on locked row")
+	}
+}
+
 func TestListCancel(t *testing.T) {
 	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeSelect))
 	m = sendKey(m, "esc")

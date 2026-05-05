@@ -36,6 +36,9 @@ type ListResult struct {
 	// Remove is true when the user pressed the remove shortcut on a row.
 	// Selected / SelectedWorktree point at the row they asked to remove.
 	Remove bool
+	// Unlock is true when the user pressed `u` on a locked worktree row.
+	// Selected / SelectedWorktree point at that row.
+	Unlock bool
 	// Cancelled is true when the user quit without selecting.
 	Cancelled bool
 }
@@ -160,6 +163,9 @@ func (m ListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "x", "X":
 			nm, cmd := m.requestRemove()
 			return nm, cmd
+		case "u", "U":
+			nm, cmd := m.requestUnlock()
+			return nm, cmd
 		case "/":
 			m.filtering = true
 			m.filter.Focus()
@@ -269,6 +275,24 @@ func (m ListModel) requestRemove() (ListModel, tea.Cmd) {
 	m.result.Selected = item.wt.Path
 	m.result.SelectedWorktree = item.wt
 	m.result.Remove = true
+	m.done = true
+	return m, tea.Quit
+}
+
+// requestUnlock marks the cursor row for unlocking and exits. No-op unless
+// the row is a locked worktree (not the "Add new" row).
+func (m ListModel) requestUnlock() (ListModel, tea.Cmd) {
+	visible := m.visibleIndexes()
+	if m.cursor < 0 || m.cursor >= len(visible) {
+		return m, nil
+	}
+	item := m.items[visible[m.cursor]]
+	if item.addNew || !item.wt.Locked {
+		return m, nil
+	}
+	m.result.Selected = item.wt.Path
+	m.result.SelectedWorktree = item.wt
+	m.result.Unlock = true
 	m.done = true
 	return m, tea.Quit
 }
@@ -390,12 +414,17 @@ func (m ListModel) renderRow(item listItem, selected bool, innerWidth int) strin
 		annotation = "  " + StyleBranchAnnotation.Render("("+item.wt.Branch+")")
 	}
 
+	lock := ""
+	if item.wt.Locked {
+		lock = "  🔒"
+	}
+
 	path := item.wt.Path
 	if selected {
 		path = StyleSelectedPath.Render(path)
 	}
 
-	line := cursor + dot + path + annotation
+	line := cursor + dot + path + lock + annotation
 	if selected {
 		return StyleRow.Render(UnderlineWithColor(line, m.underlineHex()))
 	}
@@ -408,12 +437,26 @@ func (m ListModel) helpLine() string {
 		parts = append(parts, "enter: select", "esc: clear filter", "↑↓: move", "ctrl+c: quit")
 	} else {
 		parts = append(parts, "↑↓: move", "enter: select", "/ or type: filter")
+		if m.cursorOnLocked() {
+			parts = append(parts, "u: unlock")
+		}
 		if m.mode == ModeSelect {
 			parts = append(parts, "x: remove")
 		}
 		parts = append(parts, "q: quit")
 	}
 	return StyleHelp.Render(strings.Join(parts, "  •  "))
+}
+
+// cursorOnLocked reports whether the currently highlighted row is a locked
+// worktree. Used to conditionally show the `u: unlock` hint.
+func (m ListModel) cursorOnLocked() bool {
+	visible := m.visibleIndexes()
+	if m.cursor < 0 || m.cursor >= len(visible) {
+		return false
+	}
+	item := m.items[visible[m.cursor]]
+	return !item.addNew && item.wt.Locked
 }
 
 // --- utility ------------------------------------------------------------

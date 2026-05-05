@@ -133,6 +133,13 @@ func runBare() error {
 			worktrees, _ = git.List()
 			continue
 		}
+		if result.Unlock {
+			if err := unlockWorktree(result.SelectedWorktree); err != nil {
+				return err
+			}
+			worktrees, _ = git.List()
+			continue
+		}
 		if result.Selected != "" {
 			emitPath(result.Selected)
 			return nil
@@ -259,21 +266,55 @@ func runRemove(args []string) error {
 		fmt.Fprintln(os.Stderr, tui.StyleSuccess.Render("✦ removed "+target))
 		return nil
 	}
-	// Interactive picker.
-	worktrees, err := git.List()
+	// Interactive picker. Loops so `u` can unlock and return to the list.
+	for {
+		worktrees, err := git.List()
+		if err != nil {
+			return err
+		}
+		current, _ := git.CurrentWorktreePath()
+		model := tui.NewListModel(worktrees, current, tui.ModeRemove)
+		result, err := tui.RunList(model)
+		if err != nil {
+			return err
+		}
+		if result.Cancelled {
+			return nil
+		}
+		if result.Unlock {
+			if err := unlockWorktree(result.SelectedWorktree); err != nil {
+				return err
+			}
+			continue
+		}
+		if result.Selected == "" {
+			return nil
+		}
+		return confirmAndRemove(result.SelectedWorktree)
+	}
+}
+
+// unlockWorktree runs `git worktree unlock` on the given worktree and
+// surfaces git's output. No confirm dialog — unlock is benign.
+func unlockWorktree(wt git.Worktree) error {
+	var (
+		out string
+		err error
+	)
+	spinErr := tui.RunWithSpinner("unlocking "+wt.Path+"…", func() {
+		out, err = git.Unlock(wt.Path)
+	})
+	if spinErr != nil {
+		return spinErr
+	}
+	if out != "" {
+		fmt.Fprintln(os.Stderr, out)
+	}
 	if err != nil {
 		return err
 	}
-	current, _ := git.CurrentWorktreePath()
-	model := tui.NewListModel(worktrees, current, tui.ModeRemove)
-	result, err := tui.RunList(model)
-	if err != nil {
-		return err
-	}
-	if result.Cancelled || result.Selected == "" {
-		return nil
-	}
-	return confirmAndRemove(result.SelectedWorktree)
+	fmt.Fprintln(os.Stderr, tui.StyleSuccess.Render("✦ unlocked "+wt.Path))
+	return nil
 }
 
 // confirmAndRemove shows the confirm dialog for the given worktree and,
