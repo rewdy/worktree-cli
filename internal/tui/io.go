@@ -51,3 +51,25 @@ func ttyOptions() []tea.ProgramOption {
 		tea.WithInput(os.Stdin),
 	}
 }
+
+// frameChrome is the total horizontal space consumed by StyleFrame's
+// rounded border (1 col each side) plus its padding (2 cols each side).
+// Inner content width is terminal width minus this.
+const frameChrome = 6
+
+// defaultInnerWidth is used before the first WindowSizeMsg arrives and as
+// a floor so narrow terminals don't collapse the layout entirely.
+const defaultInnerWidth = 76
+
+// innerWidthFor clamps the inner width for a given terminal width. Falls
+// back to defaultInnerWidth when termWidth is 0 (pre-size message).
+func innerWidthFor(termWidth int) int {
+	if termWidth <= 0 {
+		return defaultInnerWidth
+	}
+	w := termWidth - frameChrome
+	if w < 20 {
+		return 20
+	}
+	return w
+}

@@ -19,10 +19,11 @@ type ConfirmResult struct {
 // ConfirmModel is a simple two-button confirm dialog for destructive actions.
 // Defaults focus to Remove; `y` confirms, `n`/esc cancel.
 type ConfirmModel struct {
-	worktree git.Worktree
-	choice   int // 0 = Cancel, 1 = Remove
-	done     bool
-	result   ConfirmResult
+	worktree  git.Worktree
+	choice    int // 0 = Cancel, 1 = Remove
+	done      bool
+	result    ConfirmResult
+	termWidth int
 }
 
 // NewConfirmModel builds a confirm dialog for removing the given worktree.
@@ -37,6 +38,10 @@ func (m ConfirmModel) Init() tea.Cmd { return nil }
 
 // Update implements tea.Model.
 func (m ConfirmModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if ws, ok := msg.(tea.WindowSizeMsg); ok {
+		m.termWidth = ws.Width
+		return m, nil
+	}
 	km, ok := msg.(tea.KeyMsg)
 	if !ok {
 		return m, nil
@@ -71,7 +76,7 @@ func (m ConfirmModel) View() string {
 		return ""
 	}
 
-	const innerWidth = 76
+	innerWidth := innerWidthFor(m.termWidth)
 	var b strings.Builder
 
 	b.WriteString(Header("Remove worktree?", StyleTitlePink, innerWidth))

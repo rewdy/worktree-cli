@@ -32,9 +32,10 @@ type SettingsModel struct {
 	pathInput     textinput.Model
 	collapsePaths bool
 
-	focus  settingsFocus
-	done   bool
-	result SettingsResult
+	focus     settingsFocus
+	done      bool
+	result    SettingsResult
+	termWidth int
 }
 
 // NewSettingsModel builds a settings modal pre-populated with the given
@@ -61,6 +62,9 @@ func (m SettingsModel) Init() tea.Cmd { return textinput.Blink }
 // Update implements tea.Model.
 func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.termWidth = msg.Width
+		return m, nil
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "esc":
@@ -114,7 +118,7 @@ func (m SettingsModel) View() string {
 		return ""
 	}
 
-	const innerWidth = 76
+	innerWidth := innerWidthFor(m.termWidth)
 	var b strings.Builder
 
 	b.WriteString(Header("Settings", StyleTitleTeal, innerWidth))

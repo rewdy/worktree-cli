@@ -53,7 +53,8 @@ type AddModel struct {
 	result AddResult
 	done   bool
 
-	errMsg string
+	errMsg    string
+	termWidth int
 }
 
 // NewAddModel constructs the add form. Pass in the detected default branch
@@ -102,6 +103,9 @@ func (m AddModel) Init() tea.Cmd { return textinput.Blink }
 // Update implements tea.Model.
 func (m AddModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.termWidth = msg.Width
+		return m, nil
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "esc":
@@ -168,7 +172,7 @@ func (m AddModel) View() string {
 		return ""
 	}
 
-	const innerWidth = 76
+	innerWidth := innerWidthFor(m.termWidth)
 	var b strings.Builder
 
 	b.WriteString(Header("Add a new worktree", StyleTitleTeal, innerWidth))

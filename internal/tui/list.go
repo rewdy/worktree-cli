@@ -73,6 +73,7 @@ type ListModel struct {
 	emptyMessage  string
 	collapsePaths bool
 	commonPrefix  string // shared dir prefix (with trailing /); "" when no collapse
+	termWidth     int    // last seen terminal width; 0 before first WindowSizeMsg
 }
 
 // NewListModel constructs a ListModel. Pass the current worktree path so the
@@ -174,6 +175,9 @@ func (m ListModel) Init() tea.Cmd {
 // Update implements tea.Model.
 func (m ListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.termWidth = msg.Width
+		return m, nil
 	case tea.KeyMsg:
 		// When filtering, most keys go into the filter input; only Enter/Esc/arrows escape.
 		if m.filtering {
@@ -252,7 +256,7 @@ func (m ListModel) View() string {
 		return ""
 	}
 
-	const innerWidth = 76
+	innerWidth := innerWidthFor(m.termWidth)
 	var b strings.Builder
 
 	// Header: teal title (or pink for remove) + rainbow underline.
