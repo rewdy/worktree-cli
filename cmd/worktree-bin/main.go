@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -12,12 +13,29 @@ import (
 	"github.com/rewdy/worktree-cli/internal/tui"
 )
 
+// version is stamped at build time via `-ldflags "-X main.version=..."`.
+// When unset (typical for `go install` or `go build`), it's populated from
+// the embedded module info so `worktree --version` still reports something
+// useful.
+var version = ""
+
+func resolveVersion() string {
+	if version != "" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" {
+		return info.Main.Version
+	}
+	return "dev"
+}
+
 func main() {
 	root := &cobra.Command{
 		Use:   "worktree",
 		Short: "A dreamy little TUI for git worktrees 🦄",
 		Long: "worktree — a TUI for listing, creating, and removing git worktrees.\n" +
 			"Run with no args to browse and cd into a worktree.",
+		Version:       resolveVersion(),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
