@@ -57,11 +57,16 @@ type AddModel struct {
 }
 
 // NewAddModel constructs the add form. Pass in the detected default branch
-// ("main"/"master") and the current branch name (empty if detached).
-func NewAddModel(defaultBranch, currentBranch string) AddModel {
+// ("main"/"master"), the current branch name (empty if detached), and a
+// pre-populated path (from the user's default_path_template setting,
+// already resolved).
+func NewAddModel(defaultBranch, currentBranch, seededPath string) AddModel {
 	path := textinput.New()
 	path.Placeholder = "../new-worktree"
-	path.SetValue("../")
+	if seededPath == "" {
+		seededPath = "../"
+	}
+	path.SetValue(seededPath)
 	path.CursorEnd()
 	path.Prompt = ""
 	path.CharLimit = 500
@@ -315,7 +320,9 @@ func (m AddModel) helpLine() string {
 
 func (m AddModel) validate() (bool, string) {
 	path := strings.TrimSpace(m.pathInput.Value())
-	if path == "" || path == "../" {
+	if path == "" || strings.HasSuffix(path, "/") {
+		// A trailing slash means the user hasn't appended a folder name to
+		// the seeded template (e.g. still "../" or "../wt/").
 		return false, "please enter a path"
 	}
 	if m.baseChoice == baseOther && strings.TrimSpace(m.otherInput.Value()) == "" {

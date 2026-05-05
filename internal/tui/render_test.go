@@ -27,7 +27,7 @@ func stripANSI(s string) string {
 }
 
 func TestListViewRenders(t *testing.T) {
-	m := NewListModel(sampleWorktrees(), "/repo", ModeSelect)
+	m := NewListModel(sampleWorktrees(), "/repo", ModeSelect, false)
 	view := stripANSI(m.View())
 
 	// Paths should appear
@@ -55,7 +55,7 @@ func TestListViewRenders(t *testing.T) {
 }
 
 func TestAddViewRenders(t *testing.T) {
-	m := NewAddModel("main", "feature-x")
+	m := NewAddModel("main", "feature-x", "../")
 	view := stripANSI(m.View())
 
 	for _, want := range []string{"Path", "Branch", "Base", "main", "feature-x", "Other"} {

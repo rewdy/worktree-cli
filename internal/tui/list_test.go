@@ -41,7 +41,7 @@ func sendKey(m tea.Model, key string) tea.Model {
 }
 
 func TestListSelectsWorktree(t *testing.T) {
-	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeSelect))
+	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeSelect, false))
 	// Cursor starts at 0 (which should be /repo since current is sorted first).
 	// Move down once → /work/experiment (alphabetical after /repo).
 	m = sendKey(m, "down")
@@ -56,7 +56,7 @@ func TestListSelectsWorktree(t *testing.T) {
 }
 
 func TestListCurrentIsSortedFirst(t *testing.T) {
-	m := NewListModel(sampleWorktrees(), "/work/feat-x", ModeSelect)
+	m := NewListModel(sampleWorktrees(), "/work/feat-x", ModeSelect, false)
 	if len(m.items) == 0 || m.items[0].wt.Path != "/work/feat-x" {
 		t.Errorf("current worktree should be first, got %+v", m.items[0])
 	}
@@ -66,7 +66,7 @@ func TestListCurrentIsSortedFirst(t *testing.T) {
 }
 
 func TestListRemoveExcludesCurrent(t *testing.T) {
-	m := NewListModel(sampleWorktrees(), "/work/feat-x", ModeRemove)
+	m := NewListModel(sampleWorktrees(), "/work/feat-x", ModeRemove, false)
 	for _, it := range m.items {
 		if it.wt.Path == "/work/feat-x" {
 			t.Errorf("ModeRemove should exclude the current worktree")
@@ -78,7 +78,7 @@ func TestListRemoveExcludesCurrent(t *testing.T) {
 }
 
 func TestListAddNewRowPresentInSelect(t *testing.T) {
-	m := NewListModel(sampleWorktrees(), "/repo", ModeSelect)
+	m := NewListModel(sampleWorktrees(), "/repo", ModeSelect, false)
 	last := m.items[len(m.items)-1]
 	if !last.addNew {
 		t.Errorf("last item should be Add-new in ModeSelect")
@@ -86,7 +86,7 @@ func TestListAddNewRowPresentInSelect(t *testing.T) {
 }
 
 func TestListFuzzyFilter(t *testing.T) {
-	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeSelect))
+	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeSelect, false))
 	// Type "hot" — should filter to hotfix-123 only.
 	m = sendKey(m, "h")
 	m = sendKey(m, "o")
@@ -103,7 +103,7 @@ func TestListFuzzyFilter(t *testing.T) {
 }
 
 func TestListSelectAddNew(t *testing.T) {
-	m := tea.Model(NewListModel([]git.Worktree{{Path: "/repo", Branch: "main"}}, "/repo", ModeSelect))
+	m := tea.Model(NewListModel([]git.Worktree{{Path: "/repo", Branch: "main"}}, "/repo", ModeSelect, false))
 	// Move down once → Add-new row
 	m = sendKey(m, "down")
 	m = sendKey(m, "enter")
@@ -114,7 +114,7 @@ func TestListSelectAddNew(t *testing.T) {
 }
 
 func TestListXRequestsRemove(t *testing.T) {
-	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeSelect))
+	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeSelect, false))
 	// Move down once → /work/experiment (first non-current after sort)
 	m = sendKey(m, "down")
 	// Press x → should request remove
@@ -130,7 +130,7 @@ func TestListXRequestsRemove(t *testing.T) {
 
 func TestListXOnCurrentIsNoop(t *testing.T) {
 	// Cursor starts on current worktree (sorted first).
-	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeSelect))
+	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeSelect, false))
 	m = sendKey(m, "x")
 	lm := m.(ListModel)
 	if lm.Result().Remove {
@@ -140,7 +140,7 @@ func TestListXOnCurrentIsNoop(t *testing.T) {
 
 func TestListXOnAddNewIsNoop(t *testing.T) {
 	// Only one worktree → Add-new is the second/last row.
-	m := tea.Model(NewListModel([]git.Worktree{{Path: "/repo", Branch: "main"}}, "/repo", ModeSelect))
+	m := tea.Model(NewListModel([]git.Worktree{{Path: "/repo", Branch: "main"}}, "/repo", ModeSelect, false))
 	m = sendKey(m, "down") // → Add new
 	m = sendKey(m, "x")
 	lm := m.(ListModel)
@@ -150,7 +150,7 @@ func TestListXOnAddNewIsNoop(t *testing.T) {
 }
 
 func TestListXInRemoveModeIsNoop(t *testing.T) {
-	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeRemove))
+	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeRemove, false))
 	m = sendKey(m, "x")
 	lm := m.(ListModel)
 	if lm.Result().Remove {
@@ -163,7 +163,7 @@ func TestListUOnLockedRequestsUnlock(t *testing.T) {
 		{Path: "/repo", Branch: "main"},
 		{Path: "/work/pinned", Branch: "pinned", Locked: true},
 	}
-	m := tea.Model(NewListModel(wts, "/repo", ModeSelect))
+	m := tea.Model(NewListModel(wts, "/repo", ModeSelect, false))
 	m = sendKey(m, "down") // → /work/pinned
 	m = sendKey(m, "u")
 	lm := m.(ListModel)
@@ -179,7 +179,7 @@ func TestListUOnLockedRequestsUnlock(t *testing.T) {
 }
 
 func TestListUOnUnlockedIsNoop(t *testing.T) {
-	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeSelect))
+	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeSelect, false))
 	// Cursor on current worktree (not locked).
 	m = sendKey(m, "u")
 	lm := m.(ListModel)
@@ -196,7 +196,7 @@ func TestListUnlockHintShownOnlyOnLocked(t *testing.T) {
 		{Path: "/repo", Branch: "main"},
 		{Path: "/work/pinned", Branch: "pinned", Locked: true},
 	}
-	m := NewListModel(wts, "/repo", ModeSelect)
+	m := NewListModel(wts, "/repo", ModeSelect, false)
 	// Cursor on /repo (unlocked) → hint absent.
 	if strings.Contains(m.helpLine(), "unlock") {
 		t.Errorf("help line should not show unlock hint on unlocked row")
@@ -210,8 +210,64 @@ func TestListUnlockHintShownOnlyOnLocked(t *testing.T) {
 	}
 }
 
+func TestListSKeyRequestsSettings(t *testing.T) {
+	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeSelect, false))
+	m = sendKey(m, "s")
+	lm := m.(ListModel)
+	if !lm.Result().OpenSettings {
+		t.Errorf("s should set OpenSettings")
+	}
+}
+
+func TestListSKeyIgnoredInRemoveMode(t *testing.T) {
+	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeRemove, false))
+	m = sendKey(m, "s")
+	lm := m.(ListModel)
+	if lm.Result().OpenSettings {
+		t.Errorf("s should be ignored in remove mode")
+	}
+}
+
+func TestListCollapseCommonPrefix(t *testing.T) {
+	wts := []git.Worktree{
+		{Path: "/Users/me/code/feat-a", Branch: "feat-a"},
+		{Path: "/Users/me/code/feat-b", Branch: "feat-b"},
+	}
+	m := NewListModel(wts, "/Users/me/code/feat-a", ModeSelect, true)
+	if m.commonPrefix != "/Users/me/code/" {
+		t.Errorf("commonPrefix = %q, want %q", m.commonPrefix, "/Users/me/code/")
+	}
+	view := stripANSI(m.View())
+	if strings.Contains(view, "/Users/me/code/feat-a") {
+		t.Errorf("collapsed view should not contain the full path:\n%s", view)
+	}
+	if !strings.Contains(view, "…/feat-a") {
+		t.Errorf("collapsed view should show ellipsis + tail:\n%s", view)
+	}
+}
+
+func TestListCollapseDisabled(t *testing.T) {
+	wts := []git.Worktree{
+		{Path: "/Users/me/code/feat-a", Branch: "feat-a"},
+		{Path: "/Users/me/code/feat-b", Branch: "feat-b"},
+	}
+	m := NewListModel(wts, "/Users/me/code/feat-a", ModeSelect, false)
+	view := stripANSI(m.View())
+	if !strings.Contains(view, "/Users/me/code/feat-a") {
+		t.Errorf("uncollapsed view should show full path:\n%s", view)
+	}
+}
+
+func TestListCollapseSingleWorktreeNoop(t *testing.T) {
+	wts := []git.Worktree{{Path: "/Users/me/code/feat-a", Branch: "feat-a"}}
+	m := NewListModel(wts, "/Users/me/code/feat-a", ModeSelect, true)
+	if m.commonPrefix != "" {
+		t.Errorf("single worktree should not produce a common prefix, got %q", m.commonPrefix)
+	}
+}
+
 func TestListCancel(t *testing.T) {
-	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeSelect))
+	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeSelect, false))
 	m = sendKey(m, "esc")
 	lm := m.(ListModel)
 	if !lm.Result().Cancelled {

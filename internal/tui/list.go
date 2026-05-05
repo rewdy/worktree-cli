@@ -39,6 +39,10 @@ type ListResult struct {
 	// Unlock is true when the user pressed `u` on a locked worktree row.
 	// Selected / SelectedWorktree point at that row.
 	Unlock bool
+	// OpenSettings is true when the user pressed `s` to open the settings
+	// modal. The caller is responsible for running the modal and re-entering
+	// the list afterward.
+	OpenSettings bool
 	// Cancelled is true when the user quit without selecting.
 	Cancelled bool
 }
@@ -58,20 +62,24 @@ func (li listItem) searchString() string {
 
 // ListModel is the Bubble Tea model for the selector.
 type ListModel struct {
-	mode         ListMode
-	items        []listItem
-	filter       textinput.Model
-	cursor       int
-	filtering    bool
-	filtered     []int // indexes into items; nil means no filter active
-	result       ListResult
-	done         bool
-	emptyMessage string
+	mode          ListMode
+	items         []listItem
+	filter        textinput.Model
+	cursor        int
+	filtering     bool
+	filtered      []int // indexes into items; nil means no filter active
+	result        ListResult
+	done          bool
+	emptyMessage  string
+	collapsePaths bool
+	commonPrefix  string // shared dir prefix (with trailing /); "" when no collapse
 }
 
 // NewListModel constructs a ListModel. Pass the current worktree path so the
 // model can mark which row you're on and (for ModeRemove) exclude it.
-func NewListModel(worktrees []git.Worktree, currentPath string, mode ListMode) ListModel {
+// collapsePaths=true elides the shared directory prefix across worktrees in
+// the display.
+func NewListModel(worktrees []git.Worktree, currentPath string, mode ListMode, collapsePaths bool) ListModel {
 	ti := textinput.New()
 	ti.Placeholder = "type to filter…"
 	ti.Prompt = ""
@@ -104,12 +112,58 @@ func NewListModel(worktrees []git.Worktree, currentPath string, mode ListMode) L
 		empty = "No removable worktrees (you can't remove the one you're in)."
 	}
 
-	return ListModel{
-		mode:         mode,
-		items:        items,
-		filter:       ti,
-		emptyMessage: empty,
+	// Compute the collapse prefix from the actual worktree paths (not the
+	// filtered items) so removing the current one doesn't change the
+	// display in ModeRemove.
+	var paths []string
+	for _, w := range worktrees {
+		paths = append(paths, w.Path)
 	}
+
+	return ListModel{
+		mode:          mode,
+		items:         items,
+		filter:        ti,
+		emptyMessage:  empty,
+		collapsePaths: collapsePaths,
+		commonPrefix:  commonPathPrefix(paths),
+	}
+}
+
+// commonPathPrefix returns the longest shared directory prefix (including
+// trailing "/") across the given paths. Returns "" when there are fewer
+// than two paths or the prefix wouldn't save at least one directory
+// component.
+func commonPathPrefix(paths []string) string {
+	if len(paths) < 2 {
+		return ""
+	}
+	prefix := paths[0]
+	for _, p := range paths[1:] {
+		prefix = longestStringPrefix(prefix, p)
+		if prefix == "" {
+			return ""
+		}
+	}
+	// Truncate to the last "/" so we don't elide mid-segment.
+	idx := strings.LastIndex(prefix, "/")
+	if idx <= 0 {
+		return ""
+	}
+	return prefix[:idx+1]
+}
+
+func longestStringPrefix(a, b string) string {
+	n := len(a)
+	if len(b) < n {
+		n = len(b)
+	}
+	for i := 0; i < n; i++ {
+		if a[i] != b[i] {
+			return a[:i]
+		}
+	}
+	return a[:n]
 }
 
 // Init implements tea.Model.
@@ -166,6 +220,13 @@ func (m ListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "u", "U":
 			nm, cmd := m.requestUnlock()
 			return nm, cmd
+		case "s", "S":
+			if m.mode != ModeSelect {
+				return m, nil
+			}
+			m.result.OpenSettings = true
+			m.done = true
+			return m, tea.Quit
 		case "/":
 			m.filtering = true
 			m.filter.Focus()
@@ -419,12 +480,17 @@ func (m ListModel) renderRow(item listItem, selected bool, innerWidth int) strin
 		lock = "  🔒"
 	}
 
-	path := item.wt.Path
+	displayPath := item.wt.Path
+	ellipsis := ""
+	if m.collapsePaths && m.commonPrefix != "" && strings.HasPrefix(displayPath, m.commonPrefix) {
+		displayPath = displayPath[len(m.commonPrefix):]
+		ellipsis = StyleSubtitle.Render("…/")
+	}
 	if selected {
-		path = StyleSelectedPath.Render(path)
+		displayPath = StyleSelectedPath.Render(displayPath)
 	}
 
-	line := cursor + dot + path + lock + annotation
+	line := cursor + dot + ellipsis + displayPath + lock + annotation
 	if selected {
 		return StyleRow.Render(UnderlineWithColor(line, m.underlineHex()))
 	}
@@ -442,6 +508,7 @@ func (m ListModel) helpLine() string {
 		}
 		if m.mode == ModeSelect {
 			parts = append(parts, "x: remove")
+			parts = append(parts, "s: settings")
 		}
 		parts = append(parts, "q: quit")
 	}

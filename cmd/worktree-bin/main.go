@@ -3,12 +3,14 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 	"strconv"
 
 	"github.com/spf13/cobra"
 
 	"github.com/rewdy/worktree-cli/internal/git"
+	"github.com/rewdy/worktree-cli/internal/settings"
 	"github.com/rewdy/worktree-cli/internal/shell"
 	"github.com/rewdy/worktree-cli/internal/tui"
 )
@@ -98,7 +100,16 @@ func main() {
 	}
 	shellInitCmd.Flags().Bool("dismiss-tip", false, "stop showing the first-run install tip")
 
-	root.AddCommand(addCmd, removeCmd, homeCmd, shellInitCmd)
+	settingsCmd := &cobra.Command{
+		Use:   "settings",
+		Short: "Edit worktree preferences",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			_, err := openSettings(settings.Load())
+			return err
+		},
+	}
+
+	root.AddCommand(addCmd, removeCmd, homeCmd, shellInitCmd, settingsCmd)
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, tui.StyleError.Render("✗ "+err.Error()))
@@ -117,15 +128,25 @@ func runBare() error {
 		return err
 	}
 	current, _ := git.CurrentWorktreePath()
+	s := settings.Load()
 
 	for {
-		model := tui.NewListModel(worktrees, current, tui.ModeSelect)
+		model := tui.NewListModel(worktrees, current, tui.ModeSelect, s.CollapsePaths)
 		result, err := tui.RunList(model)
 		if err != nil {
 			return err
 		}
 		if result.Cancelled {
 			return nil
+		}
+		if result.OpenSettings {
+			if updated, err := openSettings(s); err != nil {
+				return err
+			} else if updated != nil {
+				s = *updated
+			}
+			worktrees, _ = git.List()
+			continue
 		}
 		if result.AddNew {
 			// Show add form; on success, cd into the new worktree.
@@ -214,7 +235,10 @@ func runAdd(args []string) error {
 func runAddInteractive() (string, error) {
 	defaultBranch := git.DefaultBranch()
 	currentBranch := git.CurrentBranch()
-	model := tui.NewAddModel(defaultBranch, currentBranch)
+	s := settings.Load()
+	projectName := resolveProjectName()
+	seededPath := settings.Resolve(s.DefaultPathTemplate, projectName, currentBranch)
+	model := tui.NewAddModel(defaultBranch, currentBranch, seededPath)
 	result, err := tui.RunAdd(model)
 	if err != nil {
 		return "", err
@@ -285,13 +309,14 @@ func runRemove(args []string) error {
 		return nil
 	}
 	// Interactive picker. Loops so `u` can unlock and return to the list.
+	s := settings.Load()
 	for {
 		worktrees, err := git.List()
 		if err != nil {
 			return err
 		}
 		current, _ := git.CurrentWorktreePath()
-		model := tui.NewListModel(worktrees, current, tui.ModeRemove)
+		model := tui.NewListModel(worktrees, current, tui.ModeRemove, s.CollapsePaths)
 		result, err := tui.RunList(model)
 		if err != nil {
 			return err
@@ -333,6 +358,40 @@ func unlockWorktree(wt git.Worktree) error {
 	}
 	fmt.Fprintln(os.Stderr, tui.StyleSuccess.Render("✦ unlocked "+wt.Path))
 	return nil
+}
+
+// resolveProjectName returns the basename of the main worktree. Falls back
+// to the current worktree's basename for bare repos where there's no main,
+// and finally to "project" if nothing resolves cleanly.
+func resolveProjectName() string {
+	if main, err := git.MainWorktreePath(); err == nil {
+		if name := filepath.Base(main); name != "" && name != "." && name != "/" {
+			return name
+		}
+	}
+	if cur, err := git.CurrentWorktreePath(); err == nil {
+		if name := filepath.Base(cur); name != "" && name != "." && name != "/" {
+			return name
+		}
+	}
+	return "project"
+}
+
+// openSettings runs the settings modal with `current` pre-filled, persists
+// the result on save, and returns the new settings (or nil if cancelled).
+func openSettings(current settings.Settings) (*settings.Settings, error) {
+	result, err := tui.RunSettings(tui.NewSettingsModel(current))
+	if err != nil {
+		return nil, err
+	}
+	if !result.Saved {
+		return nil, nil
+	}
+	if err := settings.Save(result.Settings); err != nil {
+		return nil, err
+	}
+	fmt.Fprintln(os.Stderr, tui.StyleSuccess.Render("✦ settings saved"))
+	return &result.Settings, nil
 }
 
 // confirmAndRemove shows the confirm dialog for the given worktree and,
