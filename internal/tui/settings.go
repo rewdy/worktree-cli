@@ -23,6 +23,7 @@ type settingsFocus int
 const (
 	settingsFocusPath settingsFocus = iota
 	settingsFocusCollapse
+	settingsFocusTrash
 	settingsFocusCancel
 	settingsFocusSave
 )
@@ -31,6 +32,7 @@ const (
 type SettingsModel struct {
 	pathInput     textinput.Model
 	collapsePaths bool
+	removeToTrash bool
 
 	focus     settingsFocus
 	done      bool
@@ -52,6 +54,7 @@ func NewSettingsModel(current settings.Settings) SettingsModel {
 	return SettingsModel{
 		pathInput:     ti,
 		collapsePaths: current.CollapsePaths,
+		removeToTrash: current.RemoveToTrash,
 		focus:         settingsFocusPath,
 	}
 }
@@ -83,15 +86,23 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.collapsePaths = !m.collapsePaths
 				return m, nil
 			}
+			if m.focus == settingsFocusTrash {
+				m.removeToTrash = !m.removeToTrash
+				return m, nil
+			}
 		case "left", "right", "h", "l":
 			if m.focus == settingsFocusCollapse {
 				m.collapsePaths = !m.collapsePaths
 				return m, nil
 			}
+			if m.focus == settingsFocusTrash {
+				m.removeToTrash = !m.removeToTrash
+				return m, nil
+			}
 
 		case "enter":
 			switch m.focus {
-			case settingsFocusPath, settingsFocusCollapse:
+			case settingsFocusPath, settingsFocusCollapse, settingsFocusTrash:
 				m = m.moveFocus(true)
 				return m, textinput.Blink
 			case settingsFocusCancel:
@@ -134,6 +145,11 @@ func (m SettingsModel) View() string {
 	b.WriteString(m.togglePills())
 	b.WriteString("\n\n")
 
+	// Remove to trash toggle.
+	b.WriteString(m.labelLine("Move to trash", "move removed worktrees to trash instead of deleting (macOS/Linux only)"))
+	b.WriteString(m.renderTrashToggle())
+	b.WriteString("\n\n")
+
 	// Separator between form fields and the action buttons.
 	b.WriteString(lipgloss.NewStyle().Foreground(colorDim).Render(strings.Repeat("─", innerWidth)))
 	b.WriteString("\n\n")
@@ -157,6 +173,7 @@ func (m SettingsModel) moveFocus(forward bool) SettingsModel {
 	order := []settingsFocus{
 		settingsFocusPath,
 		settingsFocusCollapse,
+		settingsFocusTrash,
 		settingsFocusCancel,
 		settingsFocusSave,
 	}
@@ -214,6 +231,23 @@ func (m SettingsModel) togglePills() string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, off, on)
 }
 
+func (m SettingsModel) renderTrashToggle() string {
+	renderPill := func(label string, on bool) string {
+		focused := m.focus == settingsFocusTrash
+		switch {
+		case on && focused:
+			return StylePillActive.Render(label)
+		case on:
+			return StylePillSelected.Render(label)
+		default:
+			return StylePill.Render(label)
+		}
+	}
+	off := renderPill("Off", !m.removeToTrash)
+	on := renderPill("On", m.removeToTrash)
+	return lipgloss.JoinHorizontal(lipgloss.Top, off, on)
+}
+
 // renderButton mirrors ConfirmModel.renderButton — compact rounded buttons
 // with a focused bright state.
 func (m SettingsModel) renderButton(label string, focused, primary bool) string {
@@ -252,6 +286,7 @@ func (m *SettingsModel) commit() {
 	m.result.Settings = settings.Settings{
 		DefaultPathTemplate: strings.TrimSpace(m.pathInput.Value()),
 		CollapsePaths:       m.collapsePaths,
+		RemoveToTrash:       m.removeToTrash,
 	}
 	m.done = true
 }

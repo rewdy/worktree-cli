@@ -38,7 +38,8 @@ func TestSettingsSaveRoundtrip(t *testing.T) {
 	// Tab to the collapse toggle, flip it on.
 	m = sendSettingsKey(m, "tab")
 	m = sendSettingsKey(m, "space")
-	// Tab past Cancel onto Save, then Enter.
+	// Tab past trash toggle, past Cancel onto Save, then Enter.
+	m = sendSettingsKey(m, "tab")
 	m = sendSettingsKey(m, "tab")
 	m = sendSettingsKey(m, "tab")
 	m = sendSettingsKey(m, "enter")
@@ -66,7 +67,8 @@ func TestSettingsCancelViaEsc(t *testing.T) {
 
 func TestSettingsCancelViaButton(t *testing.T) {
 	m := tea.Model(NewSettingsModel(settings.Defaults()))
-	// Tab past collapse to Cancel button.
+	// Tab past collapse, past trash to Cancel button.
+	m = sendSettingsKey(m, "tab")
 	m = sendSettingsKey(m, "tab")
 	m = sendSettingsKey(m, "tab")
 	m = sendSettingsKey(m, "enter")
@@ -80,7 +82,8 @@ func TestSettingsToggleWithArrowKeys(t *testing.T) {
 	m := tea.Model(NewSettingsModel(settings.Settings{DefaultPathTemplate: "../", CollapsePaths: false}))
 	m = sendSettingsKey(m, "tab")   // focus collapse
 	m = sendSettingsKey(m, "right") // flip on
-	// Jump to Save via two tabs.
+	// Jump to Save via three tabs (trash, Cancel, Save).
+	m = sendSettingsKey(m, "tab")
 	m = sendSettingsKey(m, "tab")
 	m = sendSettingsKey(m, "tab")
 	m = sendSettingsKey(m, "enter")

@@ -20,6 +20,9 @@ type Settings struct {
 	// the visible worktrees with "…/" in the list view. Display-only —
 	// actual paths are unchanged.
 	CollapsePaths bool `yaml:"collapse_paths"`
+	// RemoveToTrash, when true, moves removed worktrees to the system trash
+	// instead of deleting them. Faster and safer. macOS and Linux only.
+	RemoveToTrash bool `yaml:"remove_to_trash"`
 }
 
 // Defaults returns the out-of-the-box settings, used when no settings
@@ -28,6 +31,7 @@ func Defaults() Settings {
 	return Settings{
 		DefaultPathTemplate: "../",
 		CollapsePaths:       false,
+		RemoveToTrash:       false,
 	}
 }
 

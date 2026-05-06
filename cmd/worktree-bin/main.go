@@ -12,6 +12,7 @@ import (
 	"github.com/rewdy/worktree-cli/internal/git"
 	"github.com/rewdy/worktree-cli/internal/settings"
 	"github.com/rewdy/worktree-cli/internal/shell"
+	"github.com/rewdy/worktree-cli/internal/trash"
 	"github.com/rewdy/worktree-cli/internal/tui"
 )
 
@@ -395,9 +396,8 @@ func openSettings(current settings.Settings) (*settings.Settings, error) {
 }
 
 // confirmAndRemove shows the confirm dialog for the given worktree and,
-// if the user confirms, runs `git worktree remove`. Surfaces git's error
-// verbatim on failure (e.g. uncommitted changes). A no-op if the user
-// cancels.
+// if the user confirms, either moves to trash (if enabled) or runs
+// `git worktree remove`. Surfaces errors verbatim on failure.
 func confirmAndRemove(wt git.Worktree) error {
 	confirmResult, err := tui.RunConfirm(tui.NewConfirmModel(wt))
 	if err != nil {
@@ -406,7 +406,59 @@ func confirmAndRemove(wt git.Worktree) error {
 	if !confirmResult.Confirmed {
 		return nil
 	}
+
+	s := settings.Load()
+
+	// Check for uncommitted changes before attempting removal
+	isDirty, err := git.CheckDirty(wt.Path)
+	if err != nil {
+		return fmt.Errorf("failed to check worktree status: %w", err)
+	}
+	if isDirty {
+		return fmt.Errorf("worktree has uncommitted changes — commit or stash them first")
+	}
+
 	var out string
+	var trashPath string
+
+	if s.RemoveToTrash {
+		// Trash path: move directory, then prune git metadata
+		spinErr := tui.RunWithSpinner("moving to trash…", func() {
+			trashPath, err = trash.Move(wt.Path)
+			if err == nil {
+				// Clean up git's worktree metadata after successful move
+				pruneErr := git.Prune()
+				if pruneErr != nil {
+					// Non-fatal: directory is gone but git metadata remains
+					out = "warning: git worktree prune failed: " + pruneErr.Error()
+				}
+			}
+		})
+		if spinErr != nil {
+			return spinErr
+		}
+		if err != nil {
+			// Fall back to standard git remove on trash failure
+			if err == trash.ErrUnsupported {
+				return fallbackToGitRemove(wt)
+			}
+			return fmt.Errorf("failed to move to trash: %w", err)
+		}
+		if out != "" {
+			fmt.Fprintln(os.Stderr, tui.StyleSubtitle.Render(out))
+		}
+		fmt.Fprintln(os.Stderr, tui.StyleSuccess.Render("✦ moved to trash: "+trashPath))
+		return nil
+	}
+
+	// Standard git remove path
+	return fallbackToGitRemove(wt)
+}
+
+// fallbackToGitRemove performs standard git worktree remove.
+func fallbackToGitRemove(wt git.Worktree) error {
+	var out string
+	var err error
 	spinErr := tui.RunWithSpinner("removing "+wt.Path+"…", func() {
 		out, err = git.Remove(wt.Path)
 	})

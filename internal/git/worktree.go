@@ -228,6 +228,24 @@ func Unlock(path string) (string, error) {
 	return stderr, err
 }
 
+// CheckDirty returns true if the worktree at path has uncommitted changes.
+// Uses `git status --porcelain` - any output means dirty.
+func CheckDirty(path string) (bool, error) {
+	cmd := exec.Command("git", "-C", path, "status", "--porcelain")
+	out, err := cmd.Output()
+	if err != nil {
+		return false, fmt.Errorf("failed to check status: %w", err)
+	}
+	return len(out) > 0, nil
+}
+
+// Prune removes stale worktree metadata from .git/worktrees/.
+// Called after successful trash operations to clean up git's bookkeeping.
+func Prune() error {
+	_, err := run("git", "worktree", "prune")
+	return err
+}
+
 // --- internal helpers ---------------------------------------------------
 
 func run(name string, args ...string) (string, error) {
