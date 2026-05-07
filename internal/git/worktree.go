@@ -145,6 +145,12 @@ func CurrentBranch() string {
 	return strings.TrimSpace(out)
 }
 
+// BranchExists returns true if the given local branch exists.
+func BranchExists(branch string) bool {
+	cmd := exec.Command("git", "show-ref", "--verify", "--quiet", "refs/heads/"+branch)
+	return cmd.Run() == nil
+}
+
 // InsideRepo returns nil if cwd is inside a git repo, else an error.
 func InsideRepo() error {
 	if _, err := run("git", "rev-parse", "--is-inside-work-tree"); err != nil {
@@ -156,17 +162,17 @@ func InsideRepo() error {
 // AddOptions configures a `git worktree add` call from the TUI form.
 type AddOptions struct {
 	Path   string // required; can be relative
-	Branch string // if set, passed as -b <branch> (creates new branch)
-	Base   string // if set, used as the committish arg (base the new branch on this)
+	Branch string // branch name - if exists, checks it out; if new, creates from Base
+	Base   string // if set, used as the base for new branches (committish arg)
 }
 
 // Add runs `git worktree add` with the given options. Returns the absolute
 // path of the newly created worktree on success, along with any stderr output.
 //
-// Semantics: Base is always a *starting point* — the new worktree gets a
-// fresh branch that starts from it. If Branch is empty, a branch name is
-// derived from the path basename (matching git's own default for
-// `git worktree add <path>` with no committish).
+// Semantics:
+// - If Branch is empty, derives branch name from path basename
+// - If Branch exists, checks it out (git worktree add <path> <branch>)
+// - If Branch is new, creates it with -b flag, optionally from Base
 func Add(opts AddOptions) (string, string, error) {
 	if opts.Path == "" {
 		return "", "", errors.New("path is required")
@@ -175,10 +181,22 @@ func Add(opts AddOptions) (string, string, error) {
 	if branch == "" {
 		branch = sanitizeBranchName(filepath.Base(opts.Path))
 	}
-	args := []string{"worktree", "add", "-b", branch, opts.Path}
-	if opts.Base != "" {
-		args = append(args, opts.Base)
+
+	// Check if branch exists
+	branchExists := BranchExists(branch)
+
+	var args []string
+	if branchExists {
+		// Check out existing branch: git worktree add <path> <branch>
+		args = []string{"worktree", "add", opts.Path, branch}
+	} else {
+		// Create new branch: git worktree add -b <branch> <path> [<base>]
+		args = []string{"worktree", "add", "-b", branch, opts.Path}
+		if opts.Base != "" {
+			args = append(args, opts.Base)
+		}
 	}
+
 	stderr, err := runCombined("git", args...)
 	if err != nil {
 		return "", stderr, err

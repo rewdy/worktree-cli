@@ -184,12 +184,16 @@ func (m AddModel) View() string {
 	b.WriteString("\n\n")
 
 	// Branch
-	b.WriteString(m.labelLine("Branch", "new branch name — leave blank to use the folder name"))
+	b.WriteString(m.labelLine("Branch", "name or leave blank to use folder name"))
 	b.WriteString(m.inputBox(m.branchInput, m.focus == focusBranch))
+	b.WriteString("\n")
+	b.WriteString(StyleSubtitle.Render("  💡 If branch exists → checks it out"))
+	b.WriteString("\n")
+	b.WriteString(StyleSubtitle.Render("     If branch is new → creates it from base below"))
 	b.WriteString("\n\n")
 
 	// Base
-	b.WriteString(m.labelLine("Base", "what to branch off of"))
+	b.WriteString(m.labelLine("Base", "what to branch off of (for new branches)"))
 	b.WriteString(m.basePills())
 	b.WriteString("\n")
 	if m.baseChoice == baseOther {
@@ -316,7 +320,7 @@ func (m AddModel) basePills() string {
 }
 
 func (m AddModel) helpLine() string {
-	parts := []string{"tab: next field", "enter: next / submit", "←→: pick base", "esc: cancel"}
+	parts := []string{"tab: next", "←→: pick base", "enter: submit", "esc: cancel"}
 	return "\n" + StyleHelp.Render(strings.Join(parts, "  •  "))
 }
 

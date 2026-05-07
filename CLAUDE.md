@@ -47,7 +47,7 @@ If the wrapper isn't installed, the binary falls back to stdout and prints a `cd
 
 - **`git worktree remove` never uses `--force`.** If the worktree is dirty, git's refusal is surfaced verbatim. Don't add a force path without explicit user request.
 - **The remove picker excludes the current worktree** (`ModeRemove` in `NewListModel`). Removing-the-one-you're-in is a foot-gun we deliberately prevent.
-- **`Add` always creates a new branch** (`-b <branch>`). The `Base` field is treated as a *starting point* (committish), never as the checked-out branch. Branch name defaults to the sanitized path basename when blank.
+- **`Add` works in dual mode**: If the branch exists, it checks it out; if the branch is new, it creates it with `-b` from the specified Base. Branch name defaults to the sanitized path basename when blank. The Base field is only used for new branches.
 - **Passthrough modes**: `worktree add <path> [args…]` and `worktree remove <path>` skip the TUI entirely and forward args to `git worktree`. Cobra's `DisableFlagParsing` is set on these subcommands so user flags aren't consumed.
 - **Remove to trash**: When `remove_to_trash: true` in settings, worktrees are moved to system trash instead of deleted. Runs dirty check before removal (uncommitted changes block removal). macOS uses `~/.Trash`, Linux follows Freedesktop spec with `.trashinfo` metadata files. Windows falls back to standard git remove. Git metadata is cleaned up with `git worktree prune` after successful trash move.
 - **zsh gotcha**: the wrapper uses a local `wt_status` variable instead of `$status` because zsh reserves `status` as a read-only builtin.
