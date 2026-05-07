@@ -69,9 +69,11 @@ func main() {
 		Use:   "home",
 		Short: "Jump to the main worktree (the original clone)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runHome()
+			rm, _ := cmd.Flags().GetBool("rm")
+			return runHome(rm)
 		},
 	}
+	homeCmd.Flags().Bool("rm", false, "confirm removal of current worktree after navigating home")
 
 	shellInitCmd := &cobra.Command{
 		Use:   "shell-init [bash|zsh|fish]",
@@ -269,16 +271,125 @@ func runAddInteractive() (string, error) {
 
 // --- home command -------------------------------------------------------
 
-func runHome() error {
+func runHome(removeAfter bool) error {
 	if err := git.InsideRepo(); err != nil {
 		return err
 	}
+
+	// If --rm flag is set, capture current worktree and confirm removal first
+	var currentWt git.Worktree
+	if removeAfter {
+		currentPath, err := git.CurrentWorktreePath()
+		if err != nil {
+			return fmt.Errorf("failed to get current worktree path: %w", err)
+		}
+
+		// Get main worktree path to check if we're already in it
+		mainPath, err := git.MainWorktreePath()
+		if err != nil {
+			return err
+		}
+
+		// Don't allow removing the main worktree
+		if currentPath == mainPath {
+			return fmt.Errorf("cannot remove main worktree — already home")
+		}
+
+		// Find the current worktree in the list to get full details
+		worktrees, err := git.List()
+		if err != nil {
+			return err
+		}
+
+		found := false
+		for _, wt := range worktrees {
+			if wt.Path == currentPath {
+				currentWt = wt
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("current worktree not found in git worktree list")
+		}
+
+		// Show confirmation dialog
+		confirmResult, err := tui.RunConfirm(tui.NewConfirmModel(currentWt))
+		if err != nil {
+			return err
+		}
+		if !confirmResult.Confirmed {
+			// User cancelled — don't navigate home or remove
+			return nil
+		}
+	}
+
+	// Navigate to main worktree
 	path, err := git.MainWorktreePath()
 	if err != nil {
 		return err
 	}
 	emitPath(path)
+
+	// Remove the original worktree before exiting. The shell wrapper will
+	// cd to the emitted path after the binary completes.
+	if removeAfter {
+		return removeWorktree(currentWt)
+	}
+
 	return nil
+}
+
+// removeWorktree performs the worktree removal. Called after emitPath but
+// before the binary exits, so the shell hasn't cd'd yet. Git can successfully
+// remove a worktree even when the current directory is inside it.
+func removeWorktree(wt git.Worktree) error {
+	s := settings.Load()
+
+	// Check for uncommitted changes before attempting removal
+	isDirty, err := git.CheckDirty(wt.Path)
+	if err != nil {
+		return fmt.Errorf("failed to check worktree status: %w", err)
+	}
+	if isDirty {
+		return fmt.Errorf("worktree has uncommitted changes — commit or stash them first")
+	}
+
+	var out string
+	var trashPath string
+
+	if s.RemoveToTrash {
+		// Trash path: move directory, then prune git metadata
+		spinErr := tui.RunWithSpinner("moving to trash…", func() {
+			trashPath, err = trash.Move(wt.Path)
+			if err == nil {
+				// Clean up git's worktree metadata after successful move
+				pruneErr := git.Prune()
+				if pruneErr != nil {
+					// Non-fatal: directory is gone but git metadata remains
+					out = "warning: git worktree prune failed: " + pruneErr.Error()
+				}
+			}
+		})
+		if spinErr != nil {
+			return spinErr
+		}
+		if err != nil {
+			// Fall back to standard git remove on trash failure
+			if err == trash.ErrUnsupported {
+				return fallbackToGitRemove(wt)
+			}
+			return fmt.Errorf("failed to move to trash: %w", err)
+		}
+		if out != "" {
+			fmt.Fprintln(os.Stderr, tui.StyleSubtitle.Render(out))
+		}
+		fmt.Fprintln(os.Stderr, tui.StyleSuccess.Render("✦ moved to trash: "+trashPath))
+		return nil
+	}
+
+	// Standard git remove path
+	return fallbackToGitRemove(wt)
 }
 
 // --- remove command -----------------------------------------------------
