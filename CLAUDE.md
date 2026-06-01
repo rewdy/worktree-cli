@@ -13,6 +13,10 @@ go vet ./...                                   # static checks
 
 Go 1.24 (see `.tool-versions`). Module path is `github.com/rewdy/worktree-cli` — note that the on-disk directory name (`worktree-tool`) does not match the module path.
 
+## Releases
+
+Whenever you bump the version (any `git tag vX.Y.Z`), add a matching entry to `CHANGELOG.md` in the same commit. Follow the [Keep a Changelog](https://keepachangelog.com/) format already in use: a dated `## [X.Y.Z]` heading, then sections (`Added` / `Changed` / `Deprecated` / `Removed` / `Fixed` / `Security`) for whatever applies. Don't ship a tag without the corresponding changelog entry.
+
 ## Architecture
 
 ### Two-binary pattern
