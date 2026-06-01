@@ -126,6 +126,11 @@ var (
 	StyleAddNew = lipgloss.NewStyle().
 			Foreground(colorAccent).
 			Bold(true)
+
+	// StyleNag is used for the deprecation warning above the bare list.
+	StyleNag = lipgloss.NewStyle().
+			Foreground(colorGold).
+			Italic(true)
 )
 
 // UnderlineWithColor wraps an already-styled string in an ANSI underline of

@@ -228,6 +228,47 @@ func TestListSKeyIgnoredInRemoveMode(t *testing.T) {
 	}
 }
 
+func TestListLegacyNagShownAndMKeyMigrates(t *testing.T) {
+	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeSelect, false).WithLegacyNag(true))
+
+	view := m.(ListModel).View()
+	if !strings.Contains(view, "remove_to_trash is deprecated") {
+		t.Errorf("expected nag in view, got:\n%s", view)
+	}
+	if !strings.Contains(view, "m: migrate config") {
+		t.Errorf("expected migrate hint in help line, got:\n%s", view)
+	}
+
+	m = sendKey(m, "m")
+	lm := m.(ListModel)
+	if !lm.Result().MigrateConfig {
+		t.Errorf("m should set MigrateConfig")
+	}
+}
+
+func TestListLegacyNagHiddenWhenOff(t *testing.T) {
+	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeSelect, false))
+	view := m.(ListModel).View()
+	if strings.Contains(view, "deprecated") {
+		t.Errorf("nag should be hidden when WithLegacyNag(false)")
+	}
+}
+
+func TestListMKeyFallsThroughToFilterWithoutNag(t *testing.T) {
+	// Without the nag active, `m` should not trigger migration — it
+	// should fall through to the normal printable-rune handler so users
+	// can still filter for "main", etc.
+	m := tea.Model(NewListModel(sampleWorktrees(), "/repo", ModeSelect, false))
+	m = sendKey(m, "m")
+	lm := m.(ListModel)
+	if lm.Result().MigrateConfig {
+		t.Errorf("m should not migrate when nag is off")
+	}
+	if !lm.filtering {
+		t.Errorf("m should start filter mode when nag is off")
+	}
+}
+
 func TestListCollapseCommonPrefix(t *testing.T) {
 	wts := []git.Worktree{
 		{Path: "/Users/me/code/feat-a", Branch: "feat-a"},

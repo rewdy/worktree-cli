@@ -20,8 +20,15 @@ type Settings struct {
 	// the visible worktrees with "…/" in the list view. Display-only —
 	// actual paths are unchanged.
 	CollapsePaths bool `yaml:"collapse_paths"`
-	// RemoveToTrash, when true, moves removed worktrees to the system trash
-	// instead of deleting them. Faster and safer. macOS and Linux only.
+	// FastRemove, when true, moves removed worktrees to a graveyard under
+	// the OS temp dir instead of recursively deleting. The OS clears the
+	// graveyard on its own schedule. macOS and Linux only.
+	FastRemove bool `yaml:"fast_remove"`
+	// RemoveToTrash is the legacy alias for FastRemove. Treated as
+	// FastRemove=true when set. The bare list view shows a one-line nag
+	// offering to migrate.
+	//
+	// Deprecated: use FastRemove. TODO: remove in v2.0.
 	RemoveToTrash bool `yaml:"remove_to_trash"`
 }
 
@@ -31,8 +38,31 @@ func Defaults() Settings {
 	return Settings{
 		DefaultPathTemplate: "../",
 		CollapsePaths:       false,
+		FastRemove:          false,
 		RemoveToTrash:       false,
 	}
+}
+
+// FastRemoveEnabled returns true when fast-remove behavior should apply,
+// honoring both the new key and the legacy alias.
+func (s Settings) FastRemoveEnabled() bool {
+	return s.FastRemove || s.RemoveToTrash
+}
+
+// IsLegacyConfig returns true when the user is on the deprecated
+// remove_to_trash key without the new fast_remove key set. Used to
+// trigger the migration nag.
+func (s Settings) IsLegacyConfig() bool {
+	return s.RemoveToTrash && !s.FastRemove
+}
+
+// MigrateLegacy returns a copy with the legacy alias cleared and the
+// new key set, so the saved YAML no longer contains remove_to_trash.
+func (s Settings) MigrateLegacy() Settings {
+	out := s
+	out.FastRemove = true
+	out.RemoveToTrash = false
+	return out
 }
 
 // Path returns the absolute path to the settings file, honoring

@@ -43,6 +43,10 @@ type ListResult struct {
 	// modal. The caller is responsible for running the modal and re-entering
 	// the list afterward.
 	OpenSettings bool
+	// MigrateConfig is true when the user pressed `m` on the legacy-config
+	// nag. Caller should prompt for confirmation and call
+	// settings.MigrateLegacy() on accept.
+	MigrateConfig bool
 	// Cancelled is true when the user quit without selecting.
 	Cancelled bool
 }
@@ -74,6 +78,15 @@ type ListModel struct {
 	collapsePaths bool
 	commonPrefix  string // shared dir prefix (with trailing /); "" when no collapse
 	termWidth     int    // last seen terminal width; 0 before first WindowSizeMsg
+	legacyNag     bool   // show the remove_to_trash deprecation banner
+}
+
+// WithLegacyNag toggles the deprecation banner shown above the list when
+// the user is on the legacy `remove_to_trash` config key. Set in the bare
+// command flow; passes false everywhere else.
+func (m ListModel) WithLegacyNag(b bool) ListModel {
+	m.legacyNag = b
+	return m
 }
 
 // NewListModel constructs a ListModel. Pass the current worktree path so the
@@ -206,6 +219,15 @@ func (m ListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 
+		// `m` is only intercepted while the legacy-config nag is showing.
+		// When the nag is off, it falls through to the printable-rune
+		// branch below so users can still filter for "main", etc.
+		if m.legacyNag && (msg.String() == "m" || msg.String() == "M") {
+			m.result.MigrateConfig = true
+			m.done = true
+			return m, tea.Quit
+		}
+
 		switch msg.String() {
 		case "ctrl+c", "q", "esc":
 			m.result.Cancelled = true
@@ -266,6 +288,12 @@ func (m ListModel) View() string {
 	}
 	b.WriteString(Header(m.titleText(), titleStyle, innerWidth))
 	b.WriteString("\n\n")
+
+	if m.legacyNag {
+		b.WriteString(StyleRow.Render(StyleNag.Render(
+			"⚠  remove_to_trash is deprecated — press m to migrate to fast_remove")))
+		b.WriteString("\n\n")
+	}
 
 	visible := m.visibleIndexes()
 	if len(visible) == 0 {
@@ -513,6 +541,9 @@ func (m ListModel) helpLine() string {
 		if m.mode == ModeSelect {
 			parts = append(parts, "x: remove")
 			parts = append(parts, "s: settings")
+		}
+		if m.legacyNag {
+			parts = append(parts, "m: migrate config")
 		}
 		parts = append(parts, "q: quit")
 	}

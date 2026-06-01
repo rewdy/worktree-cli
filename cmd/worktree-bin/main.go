@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -134,13 +135,26 @@ func runBare() error {
 	s := settings.Load()
 
 	for {
-		model := tui.NewListModel(worktrees, current, tui.ModeSelect, s.CollapsePaths)
+		model := tui.NewListModel(worktrees, current, tui.ModeSelect, s.CollapsePaths).
+			WithLegacyNag(s.IsLegacyConfig())
 		result, err := tui.RunList(model)
 		if err != nil {
 			return err
 		}
 		if result.Cancelled {
 			return nil
+		}
+		if result.MigrateConfig {
+			migrated := s.MigrateLegacy()
+			if err := settings.Save(migrated); err != nil {
+				return fmt.Errorf("failed to save migrated settings: %w", err)
+			}
+			s = migrated
+			fmt.Fprintln(os.Stderr, tui.StyleSuccess.Render(
+				"✦ migrated remove_to_trash → fast_remove"))
+			fmt.Fprintln(os.Stderr, tui.StyleSubtitle.Render(
+				"  Removed worktrees will move to the OS graveyard (cleared automatically by the OS)."))
+			continue
 		}
 		if result.OpenSettings {
 			if updated, err := openSettings(s); err != nil {
@@ -355,40 +369,9 @@ func removeWorktree(wt git.Worktree) error {
 		return fmt.Errorf("worktree has uncommitted changes — commit or stash them first")
 	}
 
-	var out string
-	var trashPath string
-
-	if s.RemoveToTrash {
-		// Trash path: move directory, then prune git metadata
-		spinErr := tui.RunWithSpinner("moving to trash…", func() {
-			trashPath, err = trash.Move(wt.Path)
-			if err == nil {
-				// Clean up git's worktree metadata after successful move
-				pruneErr := git.Prune()
-				if pruneErr != nil {
-					// Non-fatal: directory is gone but git metadata remains
-					out = "warning: git worktree prune failed: " + pruneErr.Error()
-				}
-			}
-		})
-		if spinErr != nil {
-			return spinErr
-		}
-		if err != nil {
-			// Fall back to standard git remove on trash failure
-			if err == trash.ErrUnsupported {
-				return fallbackToGitRemove(wt)
-			}
-			return fmt.Errorf("failed to move to trash: %w", err)
-		}
-		if out != "" {
-			fmt.Fprintln(os.Stderr, tui.StyleSubtitle.Render(out))
-		}
-		fmt.Fprintln(os.Stderr, tui.StyleSuccess.Render("✦ moved to trash: "+trashPath))
-		return nil
+	if s.FastRemoveEnabled() {
+		return fastRemove(wt)
 	}
-
-	// Standard git remove path
 	return fallbackToGitRemove(wt)
 }
 
@@ -507,7 +490,7 @@ func openSettings(current settings.Settings) (*settings.Settings, error) {
 }
 
 // confirmAndRemove shows the confirm dialog for the given worktree and,
-// if the user confirms, either moves to trash (if enabled) or runs
+// if the user confirms, either fast-removes (if enabled) or runs
 // `git worktree remove`. Surfaces errors verbatim on failure.
 func confirmAndRemove(wt git.Worktree) error {
 	confirmResult, err := tui.RunConfirm(tui.NewConfirmModel(wt))
@@ -529,41 +512,50 @@ func confirmAndRemove(wt git.Worktree) error {
 		return fmt.Errorf("worktree has uncommitted changes — commit or stash them first")
 	}
 
-	var out string
-	var trashPath string
-
-	if s.RemoveToTrash {
-		// Trash path: move directory, then prune git metadata
-		spinErr := tui.RunWithSpinner("moving to trash…", func() {
-			trashPath, err = trash.Move(wt.Path)
-			if err == nil {
-				// Clean up git's worktree metadata after successful move
-				pruneErr := git.Prune()
-				if pruneErr != nil {
-					// Non-fatal: directory is gone but git metadata remains
-					out = "warning: git worktree prune failed: " + pruneErr.Error()
-				}
-			}
-		})
-		if spinErr != nil {
-			return spinErr
-		}
-		if err != nil {
-			// Fall back to standard git remove on trash failure
-			if err == trash.ErrUnsupported {
-				return fallbackToGitRemove(wt)
-			}
-			return fmt.Errorf("failed to move to trash: %w", err)
-		}
-		if out != "" {
-			fmt.Fprintln(os.Stderr, tui.StyleSubtitle.Render(out))
-		}
-		fmt.Fprintln(os.Stderr, tui.StyleSuccess.Render("✦ moved to trash: "+trashPath))
-		return nil
+	if s.FastRemoveEnabled() {
+		return fastRemove(wt)
 	}
-
-	// Standard git remove path
 	return fallbackToGitRemove(wt)
+}
+
+// fastRemove moves the worktree into the OS graveyard and then prunes
+// git's bookkeeping. Falls back to a regular `git worktree remove` when
+// the platform is unsupported or the graveyard is on a different
+// filesystem.
+func fastRemove(wt git.Worktree) error {
+	var (
+		dest string
+		warn string
+		err  error
+	)
+	spinErr := tui.RunWithSpinner("moving to graveyard…", func() {
+		dest, err = trash.MoveToGraveyard(wt.Path)
+		if err == nil {
+			if pruneErr := git.Prune(); pruneErr != nil {
+				// Non-fatal: directory is gone but git metadata remains.
+				warn = "warning: git worktree prune failed: " + pruneErr.Error()
+			}
+		}
+	})
+	if spinErr != nil {
+		return spinErr
+	}
+	if err != nil {
+		if errors.Is(err, trash.ErrUnsupported) {
+			return fallbackToGitRemove(wt)
+		}
+		if errors.Is(err, trash.ErrCrossDevice) {
+			fmt.Fprintln(os.Stderr, tui.StyleSubtitle.Render(
+				"graveyard on a different filesystem — set $GRAVEYARD to a path on the same disk to enable fast remove"))
+			return fallbackToGitRemove(wt)
+		}
+		return fmt.Errorf("failed to move to graveyard: %w", err)
+	}
+	if warn != "" {
+		fmt.Fprintln(os.Stderr, tui.StyleSubtitle.Render(warn))
+	}
+	fmt.Fprintln(os.Stderr, tui.StyleSuccess.Render("✦ moved to graveyard: "+dest))
+	return nil
 }
 
 // fallbackToGitRemove performs standard git worktree remove.

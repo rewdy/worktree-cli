@@ -23,7 +23,7 @@ type settingsFocus int
 const (
 	settingsFocusPath settingsFocus = iota
 	settingsFocusCollapse
-	settingsFocusTrash
+	settingsFocusFast
 	settingsFocusCancel
 	settingsFocusSave
 )
@@ -32,7 +32,7 @@ const (
 type SettingsModel struct {
 	pathInput     textinput.Model
 	collapsePaths bool
-	removeToTrash bool
+	fastRemove bool
 
 	focus     settingsFocus
 	done      bool
@@ -54,7 +54,7 @@ func NewSettingsModel(current settings.Settings) SettingsModel {
 	return SettingsModel{
 		pathInput:     ti,
 		collapsePaths: current.CollapsePaths,
-		removeToTrash: current.RemoveToTrash,
+		fastRemove: current.FastRemoveEnabled(),
 		focus:         settingsFocusPath,
 	}
 }
@@ -86,8 +86,8 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.collapsePaths = !m.collapsePaths
 				return m, nil
 			}
-			if m.focus == settingsFocusTrash {
-				m.removeToTrash = !m.removeToTrash
+			if m.focus == settingsFocusFast {
+				m.fastRemove = !m.fastRemove
 				return m, nil
 			}
 		case "left", "right", "h", "l":
@@ -95,14 +95,14 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.collapsePaths = !m.collapsePaths
 				return m, nil
 			}
-			if m.focus == settingsFocusTrash {
-				m.removeToTrash = !m.removeToTrash
+			if m.focus == settingsFocusFast {
+				m.fastRemove = !m.fastRemove
 				return m, nil
 			}
 
 		case "enter":
 			switch m.focus {
-			case settingsFocusPath, settingsFocusCollapse, settingsFocusTrash:
+			case settingsFocusPath, settingsFocusCollapse, settingsFocusFast:
 				m = m.moveFocus(true)
 				return m, textinput.Blink
 			case settingsFocusCancel:
@@ -145,9 +145,9 @@ func (m SettingsModel) View() string {
 	b.WriteString(m.togglePills())
 	b.WriteString("\n\n")
 
-	// Remove to trash toggle.
-	b.WriteString(m.labelLine("Move to trash", "move removed worktrees to trash instead of deleting (macOS/Linux only)"))
-	b.WriteString(m.renderTrashToggle())
+	// Fast remove toggle.
+	b.WriteString(m.labelLine("Fast remove", "move removed worktrees to the OS graveyard (faster than rm; macOS/Linux)"))
+	b.WriteString(m.renderFastRemoveToggle())
 	b.WriteString("\n\n")
 
 	// Separator between form fields and the action buttons.
@@ -173,7 +173,7 @@ func (m SettingsModel) moveFocus(forward bool) SettingsModel {
 	order := []settingsFocus{
 		settingsFocusPath,
 		settingsFocusCollapse,
-		settingsFocusTrash,
+		settingsFocusFast,
 		settingsFocusCancel,
 		settingsFocusSave,
 	}
@@ -231,9 +231,9 @@ func (m SettingsModel) togglePills() string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, off, on)
 }
 
-func (m SettingsModel) renderTrashToggle() string {
+func (m SettingsModel) renderFastRemoveToggle() string {
 	renderPill := func(label string, on bool) string {
-		focused := m.focus == settingsFocusTrash
+		focused := m.focus == settingsFocusFast
 		switch {
 		case on && focused:
 			return StylePillActive.Render(label)
@@ -243,8 +243,8 @@ func (m SettingsModel) renderTrashToggle() string {
 			return StylePill.Render(label)
 		}
 	}
-	off := renderPill("Off", !m.removeToTrash)
-	on := renderPill("On", m.removeToTrash)
+	off := renderPill("Off", !m.fastRemove)
+	on := renderPill("On", m.fastRemove)
 	return lipgloss.JoinHorizontal(lipgloss.Top, off, on)
 }
 
@@ -283,10 +283,13 @@ func (m SettingsModel) helpLine() string {
 
 func (m *SettingsModel) commit() {
 	m.result.Saved = true
+	// Always clear the legacy RemoveToTrash on save so the YAML on disk
+	// migrates to the new key the first time the user opens settings.
 	m.result.Settings = settings.Settings{
 		DefaultPathTemplate: strings.TrimSpace(m.pathInput.Value()),
 		CollapsePaths:       m.collapsePaths,
-		RemoveToTrash:       m.removeToTrash,
+		FastRemove:          m.fastRemove,
+		RemoveToTrash:       false,
 	}
 	m.done = true
 }

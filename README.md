@@ -62,6 +62,7 @@ mv worktree-bin ~/.local/bin/   # or anywhere on your $PATH
 | `worktree remove` | Pick a worktree to remove. The one you're currently in is excluded. |
 | `worktree remove <path>` | Passthrough to `git worktree remove <path>`. |
 | `worktree home` | Jump to the main worktree (the original clone). |
+| `worktree settings` | Edit preferences (default path template, fast remove, etc.). |
 | `worktree shell-init [bash\|zsh\|fish]` | Print the shell wrapper function. |
 
 ### List features
@@ -84,6 +85,40 @@ Three fields, `tab` to navigate:
    - **main** (or **master** — whichever your repo has)
    - **&lt;current-branch&gt;** — only shown if it's not the same as main
    - **Other…** — free-form text input for any committish
+
+### Settings
+
+Run `worktree settings` to open the preferences modal. Settings are stored
+at `$XDG_CONFIG_HOME/worktree-cli/settings.yaml` (or `~/.config/...` if XDG
+isn't set).
+
+| Key | Default | Behavior |
+|---|---|---|
+| `default_path_template` | `../` | Pre-fills the Path field in the Add form. Supports `{project-name}` and `{branch}` variables. |
+| `collapse_paths` | `false` | In list view, elide the longest shared directory prefix as `…/`. Display only — actual paths are unchanged. |
+| `fast_remove` | `false` | Move removed worktrees to a per-user "graveyard" under the OS temp dir instead of recursively deleting them. Much faster, and the OS clears the graveyard on its own schedule. |
+
+#### `fast_remove` details
+
+When enabled, the destination is:
+- macOS: `$TMPDIR/graveyard-$USER` (Apple cleans `$TMPDIR` aggressively)
+- Linux: `/tmp/graveyard-$USER` (tmpfs at `/tmp` is reboot-wiped on most distros)
+- Override either with the `$GRAVEYARD` env var
+
+The removal uses an atomic `rename(2)`, which only works when the source
+and the graveyard are on the same filesystem. On a cross-filesystem
+graveyard, `worktree` falls back to `git worktree remove` and prints a
+hint to set `$GRAVEYARD` to a same-disk path. Windows always falls back
+to standard `git worktree remove`.
+
+The dirty check still runs first — uncommitted changes block fast removal
+the same way they block `git worktree remove`.
+
+> **Migrating from `remove_to_trash`.** Earlier versions used a
+> `remove_to_trash` setting that moved worktrees to the system Trash. That
+> key is still honored as an alias for `fast_remove`, but it's deprecated.
+> Bare `worktree` shows a one-line nag offering migration; press `m` to
+> rewrite the YAML in place.
 
 ### Safety
 

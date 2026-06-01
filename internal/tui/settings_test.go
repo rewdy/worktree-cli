@@ -78,6 +78,46 @@ func TestSettingsCancelViaButton(t *testing.T) {
 	}
 }
 
+func TestSettingsLegacyConfigPreFillsFastToggle(t *testing.T) {
+	// Opening settings with a legacy remove_to_trash config should show
+	// the fast-remove toggle as already On, since the two are equivalent.
+	start := settings.Settings{
+		DefaultPathTemplate: "../",
+		RemoveToTrash:       true,
+	}
+	m := NewSettingsModel(start)
+	if !m.fastRemove {
+		t.Errorf("legacy RemoveToTrash should pre-fill fast toggle as On")
+	}
+}
+
+func TestSettingsSaveMigratesLegacyKey(t *testing.T) {
+	// Saving from the modal should always emit RemoveToTrash=false even
+	// if it started true — that's the implicit-migrate behavior.
+	start := settings.Settings{
+		DefaultPathTemplate: "../",
+		RemoveToTrash:       true,
+	}
+	m := tea.Model(NewSettingsModel(start))
+	// Tab past collapse, past fast toggle, past Cancel, onto Save.
+	m = sendSettingsKey(m, "tab")
+	m = sendSettingsKey(m, "tab")
+	m = sendSettingsKey(m, "tab")
+	m = sendSettingsKey(m, "tab")
+	m = sendSettingsKey(m, "enter")
+	sm := m.(SettingsModel)
+	res := sm.Result()
+	if !res.Saved {
+		t.Fatalf("expected Saved=true")
+	}
+	if res.Settings.RemoveToTrash {
+		t.Errorf("save should clear legacy RemoveToTrash, got %+v", res.Settings)
+	}
+	if !res.Settings.FastRemove {
+		t.Errorf("save should preserve fast-remove on, got %+v", res.Settings)
+	}
+}
+
 func TestSettingsToggleWithArrowKeys(t *testing.T) {
 	m := tea.Model(NewSettingsModel(settings.Settings{DefaultPathTemplate: "../", CollapsePaths: false}))
 	m = sendSettingsKey(m, "tab")   // focus collapse

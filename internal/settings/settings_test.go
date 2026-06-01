@@ -89,6 +89,65 @@ func TestLoadMalformedFallsBackToDefaults(t *testing.T) {
 	}
 }
 
+func TestFastRemoveEnabled(t *testing.T) {
+	cases := []struct {
+		name string
+		s    Settings
+		want bool
+	}{
+		{"both off", Settings{}, false},
+		{"new key on", Settings{FastRemove: true}, true},
+		{"legacy on", Settings{RemoveToTrash: true}, true},
+		{"both on", Settings{FastRemove: true, RemoveToTrash: true}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.s.FastRemoveEnabled(); got != tc.want {
+				t.Errorf("got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestIsLegacyConfig(t *testing.T) {
+	cases := []struct {
+		name string
+		s    Settings
+		want bool
+	}{
+		{"neither", Settings{}, false},
+		{"new key only", Settings{FastRemove: true}, false},
+		{"legacy only", Settings{RemoveToTrash: true}, true},
+		{"both set", Settings{FastRemove: true, RemoveToTrash: true}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.s.IsLegacyConfig(); got != tc.want {
+				t.Errorf("got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestMigrateLegacy(t *testing.T) {
+	in := Settings{
+		DefaultPathTemplate: "../wt/",
+		CollapsePaths:       true,
+		RemoveToTrash:       true,
+	}
+	got := in.MigrateLegacy()
+	if !got.FastRemove {
+		t.Errorf("FastRemove should be true after migrate")
+	}
+	if got.RemoveToTrash {
+		t.Errorf("RemoveToTrash should be cleared after migrate")
+	}
+	// Other fields preserved.
+	if got.DefaultPathTemplate != in.DefaultPathTemplate || got.CollapsePaths != in.CollapsePaths {
+		t.Errorf("unrelated fields changed: %+v", got)
+	}
+}
+
 func TestLoadPartialFileFillsDefaults(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "partial.yaml")
