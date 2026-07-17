@@ -17,6 +17,8 @@ Go 1.24 (see `.tool-versions`). Module path is `github.com/rewdy/worktree-cli` â
 
 Whenever you bump the version (any `git tag vX.Y.Z`), add a matching entry to `CHANGELOG.md` in the same commit. Follow the [Keep a Changelog](https://keepachangelog.com/) format already in use: a dated `## [X.Y.Z]` heading, then sections (`Added` / `Changed` / `Deprecated` / `Removed` / `Fixed` / `Security`) for whatever applies. Don't ship a tag without the corresponding changelog entry.
 
+**Before pushing a feature (or any user-facing change) to `main`, remind me to cut a release.** Don't let feature work land untagged. The sequence is: move the `## [Unreleased]` notes into a dated `## [X.Y.Z]` entry, commit it, `git tag vX.Y.Z` that commit, then push both `main` and the tag (`git push origin main && git push origin vX.Y.Z`). If I'm about to push without a tag, flag it and propose the version bump (minor for new features/backward-compatible changes, patch for fixes).
+
 ## Architecture
 
 ### Two-binary pattern
