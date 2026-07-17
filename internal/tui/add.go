@@ -92,11 +92,11 @@ func NewAddModel(defaultBranch, currentBranch, seededPath string) AddModel {
 	showCurrent := currentBranch != "" && currentBranch != defaultBranch
 
 	return AddModel{
-		pathInput:   path,
-		branchInput: branch,
-		otherInput:  other,
-		defaultBase: defaultBranch,
-		currentBase: currentBranch,
+		pathInput:    path,
+		branchInput:  branch,
+		otherInput:   other,
+		defaultBase:  defaultBranch,
+		currentBase:  currentBranch,
 		showCurrent:  showCurrent,
 		focus:        focusPath,
 		baseChoice:   baseDefault,
