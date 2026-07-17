@@ -55,6 +55,12 @@ type AddModel struct {
 
 	errMsg    string
 	termWidth int
+
+	// previewCache memoizes the rendered command per (path|branch|base) so
+	// View doesn't spawn `git show-ref` (via git.AddArgs → BranchExists) on
+	// every cursor blink. Reference type, so it survives value-copies of the
+	// model between Update calls.
+	previewCache map[string]string
 }
 
 // NewAddModel constructs the add form. Pass in the detected default branch
@@ -91,9 +97,10 @@ func NewAddModel(defaultBranch, currentBranch, seededPath string) AddModel {
 		otherInput:  other,
 		defaultBase: defaultBranch,
 		currentBase: currentBranch,
-		showCurrent: showCurrent,
-		focus:       focusPath,
-		baseChoice:  baseDefault,
+		showCurrent:  showCurrent,
+		focus:        focusPath,
+		baseChoice:   baseDefault,
+		previewCache: map[string]string{},
 	}
 }
 
@@ -208,6 +215,12 @@ func (m AddModel) View() string {
 		b.WriteString("\n")
 	}
 
+	if preview := m.commandPreview(); preview != "" {
+		b.WriteString("\n")
+		b.WriteString(preview)
+		b.WriteString("\n")
+	}
+
 	b.WriteString(m.helpLine())
 	return "\n" + StyleFrame.Render(b.String()) + "\n"
 }
@@ -319,6 +332,26 @@ func (m AddModel) basePills() string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, pills...)
 }
 
+// commandPreview renders the exact `git worktree add …` command the current
+// form values would run, in a muted style, so the user has full visibility
+// into what submitting will do. Returns "" when the path is incomplete (still
+// a bare template like "../"), since the branch would be derived from a
+// missing folder name. Results are memoized because AddArgs shells out to
+// `git show-ref` to detect whether the branch already exists.
+func (m *AddModel) commandPreview() string {
+	opts := m.currentOptions()
+	if opts.Path == "" || strings.HasSuffix(opts.Path, "/") {
+		return ""
+	}
+	key := opts.Path + "\x00" + opts.Branch + "\x00" + opts.Base
+	cmd, ok := m.previewCache[key]
+	if !ok {
+		cmd = "git " + strings.Join(git.AddArgs(opts), " ")
+		m.previewCache[key] = cmd
+	}
+	return StyleLabel.Render("Will run") + "  " + StyleSubtitle.Render(cmd)
+}
+
 func (m AddModel) helpLine() string {
 	parts := []string{"tab: next", "←→: pick base", "enter: submit", "esc: cancel"}
 	return "\n" + StyleHelp.Render(strings.Join(parts, "  •  "))
@@ -339,7 +372,9 @@ func (m AddModel) validate() (bool, string) {
 	return true, ""
 }
 
-func (m *AddModel) submit() {
+// currentOptions builds the AddOptions from the form's current field values.
+// Shared by submit and the command preview so both reflect identical intent.
+func (m AddModel) currentOptions() git.AddOptions {
 	opts := git.AddOptions{
 		Path:   strings.TrimSpace(m.pathInput.Value()),
 		Branch: strings.TrimSpace(m.branchInput.Value()),
@@ -352,8 +387,12 @@ func (m *AddModel) submit() {
 	case baseOther:
 		opts.Base = strings.TrimSpace(m.otherInput.Value())
 	}
+	return opts
+}
+
+func (m *AddModel) submit() {
 	m.result.Submitted = true
-	m.result.Options = opts
+	m.result.Options = m.currentOptions()
 	m.done = true
 }
 

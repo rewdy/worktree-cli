@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- The add form now previews the exact `git worktree add …` command it will
+  run, in a muted line at the bottom of the dialog, so you can see what
+  filling out the form will do before submitting.
+
+### Changed
+- `worktree add <name>` with a bare name (no slash, dot, or flags) now
+  resolves the new worktree's location against your `default_path_template`
+  setting instead of creating it in the current working directory. Path-like
+  args (`../foo`, `/abs`, `./x`) and any multi-arg invocations still pass
+  through to `git worktree add` verbatim.
+
 ## [0.6.0] — 2026-06-01
 
 ### Added

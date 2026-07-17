@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -222,6 +223,17 @@ func runAdd(args []string) error {
 		emitPath(path)
 		return nil
 	}
+	// A single bare name (e.g. `worktree add feature-x`) is treated as a
+	// worktree name, not a filesystem path: we resolve it against the user's
+	// default_path_template so it lands wherever their settings dictate,
+	// rather than in the current working directory. Anything path-like (a
+	// slash, a leading dot, an absolute path) or any extra/flag args fall
+	// through to raw `git worktree add` passthrough.
+	if len(args) == 1 && isBareName(args[0]) {
+		s := settings.Load()
+		seededPath := settings.Resolve(s.DefaultPathTemplate, resolveProjectName(), git.CurrentBranch())
+		return runAddName(git.AddOptions{Path: seededPath + args[0]})
+	}
 	// With args → pure passthrough to `git worktree add`.
 	var (
 		path string
@@ -244,6 +256,50 @@ func runAdd(args []string) error {
 		fmt.Fprintln(os.Stderr, tui.StyleSuccess.Render("✦ created "+path+" "+tui.Unicorn))
 		emitPath(path)
 	}
+	return nil
+}
+
+// isBareName reports whether arg is a plain worktree name rather than a
+// filesystem path or a flag. Bare names get resolved against the user's
+// default_path_template; anything path-like or flag-like is left for raw
+// git passthrough. A name containing a path separator, a leading "." (e.g.
+// "./foo", "../foo"), an absolute path, or a leading "-" is NOT bare.
+func isBareName(arg string) bool {
+	if arg == "" {
+		return false
+	}
+	if strings.HasPrefix(arg, "-") || strings.HasPrefix(arg, ".") {
+		return false
+	}
+	if strings.ContainsRune(arg, '/') || strings.ContainsRune(arg, filepath.Separator) {
+		return false
+	}
+	return true
+}
+
+// runAddName creates a worktree at a settings-resolved path and, on success,
+// emits the path so the shell wrapper can cd into it. Mirrors the tail of
+// runAddInteractive but skips the form.
+func runAddName(opts git.AddOptions) error {
+	var (
+		path string
+		out  string
+		err  error
+	)
+	spinErr := tui.RunWithSpinner("creating worktree…", func() {
+		path, out, err = git.Add(opts)
+	})
+	if spinErr != nil {
+		return spinErr
+	}
+	if out != "" {
+		fmt.Fprintln(os.Stderr, out)
+	}
+	if err != nil {
+		return err
+	}
+	fmt.Fprintln(os.Stderr, tui.StyleSuccess.Render("✦ created "+path+" "+tui.Unicorn))
+	emitPath(path)
 	return nil
 }
 

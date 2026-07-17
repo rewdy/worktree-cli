@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -85,6 +86,27 @@ func TestAddCancel(t *testing.T) {
 	am := m.(AddModel)
 	if !am.Result().Cancelled {
 		t.Errorf("esc should cancel")
+	}
+}
+
+func TestAddCommandPreviewHiddenForBareTemplate(t *testing.T) {
+	m := NewAddModel("main", "", "../")
+	// Path is still the bare "../" template — no folder name appended yet.
+	if p := m.commandPreview(); p != "" {
+		t.Errorf("preview should be hidden for incomplete path, got %q", p)
+	}
+}
+
+func TestAddCommandPreviewShowsCommand(t *testing.T) {
+	m := NewAddModel("main", "", "../")
+	m.pathInput.SetValue("../feature-xyz")
+	view := stripANSI(m.View())
+	if !strings.Contains(view, "Will run") {
+		t.Errorf("view should show command preview label:\n%s", view)
+	}
+	// A brand-new branch → -b form derived from the folder name.
+	if !strings.Contains(view, "git worktree add -b feature-xyz ../feature-xyz") {
+		t.Errorf("view should preview the exact git command:\n%s", view)
 	}
 }
 
