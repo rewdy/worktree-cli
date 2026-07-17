@@ -166,37 +166,39 @@ type AddOptions struct {
 	Base   string // if set, used as the base for new branches (committish arg)
 }
 
-// Add runs `git worktree add` with the given options. Returns the absolute
-// path of the newly created worktree on success, along with any stderr output.
+// AddArgs returns the exact `git` arguments that Add would run for the given
+// options, resolving the branch name and existence check the same way Add
+// does. Exposed so the TUI can preview the precise command before running it.
 //
-// Semantics:
+// Semantics (mirrored by Add):
 // - If Branch is empty, derives branch name from path basename
 // - If Branch exists, checks it out (git worktree add <path> <branch>)
 // - If Branch is new, creates it with -b flag, optionally from Base
-func Add(opts AddOptions) (string, string, error) {
-	if opts.Path == "" {
-		return "", "", errors.New("path is required")
-	}
+func AddArgs(opts AddOptions) []string {
 	branch := opts.Branch
 	if branch == "" {
 		branch = sanitizeBranchName(filepath.Base(opts.Path))
 	}
-
-	// Check if branch exists
-	branchExists := BranchExists(branch)
-
-	var args []string
-	if branchExists {
+	if BranchExists(branch) {
 		// Check out existing branch: git worktree add <path> <branch>
-		args = []string{"worktree", "add", opts.Path, branch}
-	} else {
-		// Create new branch: git worktree add -b <branch> <path> [<base>]
-		args = []string{"worktree", "add", "-b", branch, opts.Path}
-		if opts.Base != "" {
-			args = append(args, opts.Base)
-		}
+		return []string{"worktree", "add", opts.Path, branch}
 	}
+	// Create new branch: git worktree add -b <branch> <path> [<base>]
+	args := []string{"worktree", "add", "-b", branch, opts.Path}
+	if opts.Base != "" {
+		args = append(args, opts.Base)
+	}
+	return args
+}
 
+// Add runs `git worktree add` with the given options. Returns the absolute
+// path of the newly created worktree on success, along with any stderr output.
+// See AddArgs for the branch/base resolution semantics.
+func Add(opts AddOptions) (string, string, error) {
+	if opts.Path == "" {
+		return "", "", errors.New("path is required")
+	}
+	args := AddArgs(opts)
 	stderr, err := runCombined("git", args...)
 	if err != nil {
 		return "", stderr, err

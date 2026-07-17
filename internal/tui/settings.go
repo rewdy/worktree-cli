@@ -32,7 +32,7 @@ const (
 type SettingsModel struct {
 	pathInput     textinput.Model
 	collapsePaths bool
-	fastRemove bool
+	fastRemove    bool
 
 	focus     settingsFocus
 	done      bool
@@ -54,7 +54,7 @@ func NewSettingsModel(current settings.Settings) SettingsModel {
 	return SettingsModel{
 		pathInput:     ti,
 		collapsePaths: current.CollapsePaths,
-		fastRemove: current.FastRemoveEnabled(),
+		fastRemove:    current.FastRemoveEnabled(),
 		focus:         settingsFocusPath,
 	}
 }

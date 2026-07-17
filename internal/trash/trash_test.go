@@ -40,7 +40,7 @@ func TestGenerateUniqueNameNoExtension(t *testing.T) {
 }
 
 func TestMoveToGraveyardHappyPath(t *testing.T) {
-// Point $GRAVEYARD at a tempdir so the test doesn't pollute the real
+	// Point $GRAVEYARD at a tempdir so the test doesn't pollute the real
 	// graveyard and so rename stays on the same filesystem.
 	graveyard := t.TempDir()
 	t.Setenv("GRAVEYARD", graveyard)
@@ -66,7 +66,7 @@ func TestMoveToGraveyardHappyPath(t *testing.T) {
 }
 
 func TestMoveToGraveyardConflictAppendsTimestamp(t *testing.T) {
-graveyard := t.TempDir()
+	graveyard := t.TempDir()
 	t.Setenv("GRAVEYARD", graveyard)
 
 	// Pre-create a clashing entry in the graveyard.
@@ -92,7 +92,7 @@ graveyard := t.TempDir()
 }
 
 func TestGraveyardDirHonorsEnvOverride(t *testing.T) {
-t.Setenv("GRAVEYARD", "/some/explicit/path")
+	t.Setenv("GRAVEYARD", "/some/explicit/path")
 	got, err := graveyardDir()
 	if err != nil {
 		t.Fatalf("graveyardDir: %v", err)
@@ -103,7 +103,7 @@ t.Setenv("GRAVEYARD", "/some/explicit/path")
 }
 
 func TestGraveyardDirDefaultIncludesUser(t *testing.T) {
-t.Setenv("GRAVEYARD", "")
+	t.Setenv("GRAVEYARD", "")
 	got, err := graveyardDir()
 	if err != nil {
 		t.Fatalf("graveyardDir: %v", err)
