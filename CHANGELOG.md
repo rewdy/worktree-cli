@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-07-17
+
 ### Added
 - The add form now previews the exact `git worktree add …` command it will
   run, in a muted line at the bottom of the dialog, so you can see what
